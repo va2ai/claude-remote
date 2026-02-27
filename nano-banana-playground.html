@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nano Banana Playground</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #08080A;
+    --surface: #111113;
+    --surface2: #19191D;
+    --border: #222228;
+    --border2: #2e2e36;
+    --text: #e8e8ed;
+    --text2: #9898a6;
+    --text3: #5c5c6e;
+    --banana: #FFD600;
+    --banana-dim: #FFD60018;
+    --orange: #FF8C00;
+    --red: #FF4D4D;
+    --red-bg: #2a0f0f;
+    --green: #4ADE80;
+    --green-dim: #4ADE8018;
+    --blue: #60A5FA;
+    --blue-dim: #60A5FA18;
+    --radius: 14px;
+    --font: 'DM Sans', -apple-system, sans-serif;
+    --serif: 'Playfair Display', Georgia, serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  @keyframes bananaRise {
+    0%   { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(-110vh) rotate(340deg); }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: .6; }
+    50% { opacity: 1; }
+  }
+  .spin { animation: spin .7s linear infinite; }
+  .fade-up { animation: fadeUp .4s ease-out both; }
+  .banana-bg {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+  }
+  .banana-bg span {
+    position: absolute; bottom: -40px;
+    animation: bananaRise var(--dur) var(--delay) linear infinite;
+    opacity: var(--op); font-size: var(--sz); left: var(--x);
+  }
+  #keyGate {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    position: relative; z-index: 1;
+  }
+  .key-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 22px;
+    padding: 44px 38px; max-width: 430px; width: 100%; text-align: center;
+  }
+  .key-card h1 {
+    font-family: var(--serif); font-size: 28px; font-weight: 600; color: #fff; margin: 6px 0 10px;
+  }
+  .key-card h1 span { color: var(--banana); }
+  .key-card .desc { color: var(--text2); font-size: 13.5px; line-height: 1.65; margin-bottom: 14px; }
+  .key-card a { color: var(--banana); font-size: 12.5px; display: inline-block; margin-bottom: 18px; }
+  .key-card .note { font-size: 11px; color: var(--text3); margin-top: 14px; line-height: 1.55; }
+  input[type="password"], input[type="text"] {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 11px; padding: 13px 16px; color: var(--text); font-size: 14px;
+    font-family: var(--font); transition: border-color .2s;
+  }
+  input:focus { outline: none; border-color: var(--banana); }
+  .btn-primary {
+    background: var(--banana); color: #000; border: none; border-radius: 11px;
+    padding: 11px 24px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    font-family: var(--font); transition: all .15s; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-primary:disabled { opacity: .4; cursor: default; filter: none; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border2); border-radius: 9px;
+    padding: 7px 14px; font-size: 12px; color: var(--text2); cursor: pointer;
+    font-family: var(--font); transition: all .15s;
+  }
+  .btn-ghost:hover { border-color: #555; color: var(--text); }
+  #app { display: none; }
+  #app.active { display: flex; flex-direction: column; min-height: 100vh; }
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 13px 22px; border-bottom: 1px solid #1a1a1e; position: relative; z-index: 2;
+  }
+  .logo-group { display: flex; align-items: center; gap: 10px; }
+  .logo-group h1 { font-family: var(--serif); font-size: 17px; font-weight: 600; }
+  .logo-group h1 span { color: var(--banana); }
+  .logo-group p { font-size: 10.5px; color: var(--text3); letter-spacing: .5px; margin-top: 1px; }
+  .layout { display: flex; flex: 1; position: relative; z-index: 1; }
+  .sidebar {
+    width: 290px; min-width: 290px; border-right: 1px solid #1a1a1e;
+    padding: 18px; overflow-y: auto; max-height: calc(100vh - 54px);
+  }
+  .section { margin-bottom: 20px; }
+  .section-label {
+    display: block; font-size: 10.5px; color: var(--text3); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.1px; margin-bottom: 9px;
+  }
+  .model-card {
+    display: block; width: 100%; text-align: left; background: transparent;
+    border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px;
+    cursor: pointer; margin-bottom: 6px; transition: all .15s; font-family: var(--font);
+  }
+  .model-card:hover { border-color: #444; }
+  .model-card.selected { border-color: var(--banana); background: var(--banana-dim); }
+  .model-card .top { display: flex; justify-content: space-between; align-items: center; }
+  .model-card .name { font-weight: 600; color: #eee; font-size: 13px; }
+  .model-card .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight: 700; color: #000;
+  }
+  .model-card .model-desc { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.4; }
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    background: transparent; border: 1px solid var(--border2); border-radius: 8px;
+    padding: 5px 10px; font-size: 12px; color: var(--text2); cursor: pointer;
+    font-family: var(--mono); transition: all .15s;
+  }
+  .chip:hover { border-color: #555; }
+  .chip.selected { border-color: var(--banana); color: var(--banana); background: var(--banana-dim); }
+  .template-btn {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    background: transparent; border: 1px solid #1e1e24; border-radius: 9px;
+    padding: 9px 12px; cursor: pointer; color: #bbb; font-family: var(--font);
+    font-size: 12.5px; text-align: left; transition: all .15s; margin-bottom: 5px;
+  }
+  .template-btn:hover { border-color: #3a3a44; color: var(--text); background: #ffffff06; }
+  /* ─── toggle switch ─── */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between; padding: 7px 0;
+  }
+  .toggle-row .toggle-label {
+    font-size: 12.5px; color: var(--text2); display: flex; align-items: center; gap: 7px;
+  }
+  .toggle-row .toggle-label .toggle-icon { font-size: 14px; opacity: .7; }
+  .toggle-row .toggle-hint { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .toggle-switch {
+    position: relative; width: 38px; height: 22px; cursor: pointer;
+    background: #2a2a32; border-radius: 12px; transition: background .2s;
+    border: 1px solid transparent; padding: 0; flex-shrink: 0;
+  }
+  .toggle-switch::after {
+    content: ''; position: absolute; top: 2px; left: 3px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #666; transition: all .2s;
+  }
+  .toggle-switch.active { background: var(--banana-dim); border-color: var(--banana); }
+  .toggle-switch.active::after { left: 17px; background: var(--banana); }
+  .toggle-switch.green-active.active { background: var(--green-dim); border-color: var(--green); }
+  .toggle-switch.green-active.active::after { background: var(--green); }
+  .toggle-switch.blue-active.active { background: var(--blue-dim); border-color: var(--blue); }
+  .toggle-switch.blue-active.active::after { background: var(--blue); }
+  /* ─── stepper ─── */
+  .stepper {
+    display: flex; align-items: center; gap: 0;
+    border: 1px solid var(--border2); border-radius: 9px; overflow: hidden;
+  }
+  .stepper button {
+    background: transparent; border: none; color: var(--text2); cursor: pointer;
+    font-family: var(--mono); font-size: 16px; padding: 5px 10px; transition: all .15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stepper button:hover { color: var(--text); background: #ffffff08; }
+  .stepper button:disabled { opacity: .2; cursor: default; }
+  .stepper .stepper-val {
+    font-family: var(--mono); font-size: 13px; color: var(--banana);
+    min-width: 24px; text-align: center; font-weight: 600;
+  }
+  .divider { border: none; border-top: 1px solid #1a1a1e; margin: 4px 0; }
+  .feature-tag {
+    font-size: 9px; padding: 1px 6px; border-radius: 4px;
+    font-weight: 700; letter-spacing: .3px; display: inline-block; margin-left: 6px;
+    vertical-align: middle;
+  }
+  .feature-tag.new { background: #22c55e22; color: #4ADE80; }
+  .feature-tag.beta { background: #3b82f622; color: #60A5FA; }
+  .main-area { flex: 1; padding: 22px 30px; overflow-y: auto; max-height: calc(100vh - 54px); }
+  .prompt-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px; transition: border-color .2s;
+  }
+  .prompt-box:focus-within { border-color: #3a3a44; }
+  .prompt-box textarea {
+    width: 100%; background: transparent; border: none; color: var(--text);
+    font-size: 15px; font-family: var(--font); resize: none; line-height: 1.6;
+    min-height: 52px; max-height: 200px;
+  }
+  .prompt-box textarea:focus { outline: none; }
+  .prompt-box textarea::placeholder { color: var(--text3); }
+  .prompt-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .prompt-footer .hint { font-size: 11px; color: var(--text3); }
+  .active-params {
+    display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid #1a1a1e;
+  }
+  .param-pill {
+    font-size: 10px; padding: 3px 8px; border-radius: 6px;
+    background: #ffffff06; border: 1px solid #2a2a32; color: var(--text3);
+    font-family: var(--mono);
+  }
+  .param-pill.on { border-color: #334; color: var(--text2); }
+  .code-panel { margin-top: 18px; }
+  .code-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .code-wrap {
+    background: #09090B; border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border); position: relative;
+  }
+  .code-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 14px; background: #0e0e10; border-bottom: 1px solid #1a1a1e;
+  }
+  .code-header span { font-family: var(--mono); font-size: 10.5px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; }
+  .code-copy {
+    background: none; border: 1px solid #333; border-radius: 6px;
+    color: #aaa; font-size: 11px; padding: 3px 10px; cursor: pointer; font-family: var(--font);
+  }
+  .code-copy:hover { border-color: #555; color: #ddd; }
+  .code-wrap pre {
+    margin: 0; padding: 16px; overflow-x: auto; font-size: 12.5px;
+    line-height: 1.65; color: #d4d4d8; font-family: var(--mono);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .results-title { font-size: 13px; color: var(--text2); font-weight: 500; margin-bottom: 14px; }
+  .result-card {
+    background: var(--surface); border: 1px solid #1e1e24; border-radius: 16px;
+    padding: 18px; margin-bottom: 18px;
+  }
+  .result-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .result-meta span { font-size: 11px; color: var(--text3); }
+  .result-meta a { font-size: 11px; color: var(--banana); text-decoration: none; cursor: pointer; }
+  .result-meta a:hover { text-decoration: underline; }
+  .result-card img { width: 100%; border-radius: 12px; display: block; margin-bottom: 8px; }
+  .result-card .resp-text { margin-top: 12px; font-size: 13px; color: #ccc; line-height: 1.65; }
+  .result-card .resp-prompt { margin-top: 8px; font-size: 11px; color: var(--text3); font-style: italic; }
+  .result-card .grounding-meta { margin-top: 8px; font-size: 10px; color: var(--green); opacity: .7; }
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 420px; text-align: center;
+  }
+  .empty-state h3 { font-family: var(--serif); color: #eee; font-size: 19px; font-weight: 500; margin: 6px 0; }
+  .empty-state p { color: var(--text3); font-size: 13px; max-width: 370px; line-height: 1.65; }
+  .error-box {
+    background: var(--red-bg); border: 1px solid #5c1a1a; border-radius: 12px;
+    padding: 13px 16px; margin-top: 14px; font-size: 13px; color: var(--red); line-height: 1.55;
+  }
+  .upload-area {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    padding-bottom: 10px; border-bottom: 1px solid #1a1a1e;
+  }
+  .upload-btn {
+    background: transparent; border: 1px dashed var(--border2); border-radius: 9px;
+    padding: 8px 14px; font-size: 12px; color: var(--text3); cursor: pointer;
+    font-family: var(--font); transition: all .15s; display: flex; align-items: center; gap: 6px;
+  }
+  .upload-btn:hover { border-color: #555; color: var(--text2); }
+  .upload-preview {
+    display: flex; align-items: center; gap: 8px; background: var(--surface2);
+    border: 1px solid var(--border2); border-radius: 9px; padding: 4px 10px 4px 4px;
+  }
+  .upload-preview img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; }
+  .upload-preview .upload-name { font-size: 11px; color: var(--text2); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .upload-remove {
+    background: none; border: none; color: var(--text3); cursor: pointer;
+    font-size: 16px; padding: 0 4px; line-height: 1;
+  }
+  .upload-remove:hover { color: var(--red); }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; min-width: 100%; max-height: none; border-right: none; border-bottom: 1px solid #1a1a1e; }
+    .main-area { max-height: none; }
+  }
+</style>
+</head>
+<body>
+<div class="banana-bg" id="bananaBg"></div>
+<!-- ════════ KEY GATE ════════ -->
+<div id="keyGate">
+  <div class="key-card fade-up">
+    <div style="font-size:52px; margin-bottom:6px;">🍌</div>
+    <h1>Nano Banana <span>Playground</span></h1>
+    <p class="desc">Generate images with Google Gemini's native image generation. Enter your API key to start.</p>
+    <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a free API key from AI Studio →</a>
+    <br>
+    <input type="password" id="apiKeyInput" placeholder="Paste your Gemini API key…">
+    <br><br>
+    <button class="btn-primary" style="width:100%;" id="launchBtn" disabled onclick="launch()">Launch Playground</button>
+    <p class="note">Your key stays in this browser tab only — never stored or sent anywhere except Google's API.</p>
+  </div>
+</div>
+<!-- ════════ MAIN APP ════════ -->
+<div id="app">
+  <header>
+    <div class="logo-group">
+      <span style="font-size:26px">🍌</span>
+      <div>
+        <h1>Nano Banana <span>Playground</span></h1>
+        <p>Gemini Native Image Generation</p>
+      </div>
+    </div>
+    <button class="btn-ghost" onclick="resetKey()">Change Key</button>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="section">
+        <span class="section-label">Model</span>
+        <div id="modelCards"></div>
+      </div>
+      <div class="section">
+        <span class="section-label">Aspect Ratio</span>
+        <div class="chip-grid" id="ratioChips"></div>
+      </div>
+      <div class="section">
+        <span class="section-label">Resolution</span>
+        <div class="chip-grid" id="resChips"></div>
+      </div>
+      <hr class="divider">
+      <div class="section">
+        <span class="section-label">Generation <span class="feature-tag new">New</span></span>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label"><span class="toggle-icon">🔢</span> Number of Images</div>
+          </div>
+          <div class="stepper">
+            <button onclick="changeNumImages(-1)" id="numImgDown">−</button>
+            <span class="stepper-val" id="numImgVal">1</span>
+            <button onclick="changeNumImages(1)" id="numImgUp">+</button>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label"><span class="toggle-icon">👤</span> Person Generation</div>
+            <div class="toggle-hint">Allow generating people</div>
+          </div>
+          <button class="toggle-switch active" id="personToggle" onclick="togglePerson()"></button>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label"><span class="toggle-icon">📝</span> Include Text Output</div>
+            <div class="toggle-hint">Return TEXT + IMAGE modalities</div>
+          </div>
+          <button class="toggle-switch active" id="textOutputToggle" onclick="toggleTextOutput()"></button>
+        </div>
+      </div>
+      <hr class="divider">
+      <div class="section">
+        <span class="section-label">Tools & Grounding <span class="feature-tag new">New</span></span>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label"><span class="toggle-icon">🔍</span> Google Search</div>
+            <div class="toggle-hint">Ground generation with web search</div>
+          </div>
+          <button class="toggle-switch green-active" id="searchToggle" onclick="toggleSearch()"></button>
+        </div>
+        <div class="toggle-row" id="imageSearchRow">
+          <div>
+            <div class="toggle-label"><span class="toggle-icon">🖼️</span> Image Search <span class="feature-tag beta">3.1</span></div>
+            <div class="toggle-hint">Ground with Google Images (Flash Image only)</div>
+          </div>
+          <button class="toggle-switch blue-active" id="imageSearchToggle" onclick="toggleImageSearch()"></button>
+        </div>
+      </div>
+      <hr class="divider">
+      <div class="section">
+        <span class="section-label">Thinking Level <span class="feature-tag new">New</span></span>
+        <div class="chip-grid" id="thinkingChips"></div>
+        <div style="font-size:10px; color:var(--text3); margin-top:6px; line-height:1.4;">
+          Controls max reasoning depth before response
+        </div>
+      </div>
+      <hr class="divider">
+      <div class="section">
+        <span class="section-label">Quick Prompts</span>
+        <div id="templates"></div>
+      </div>
+      <div class="section">
+        <button class="btn-ghost" style="width:100%; justify-content:center; display:flex;" id="codeToggle" onclick="toggleCode()">Show API Code</button>
+      </div>
+    </aside>
+    <div class="main-area">
+      <div class="prompt-box">
+        <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+        <div id="uploadArea" class="upload-area">
+          <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">📎 Upload Image</button>
+          <span style="font-size:10px; color:var(--text3);">Upload an image to edit it with your prompt</span>
+        </div>
+        <textarea id="promptArea" placeholder="Describe the image you want to generate… or describe edits to an uploaded image" rows="2"></textarea>
+        <div class="prompt-footer">
+          <span class="hint">⌘+Enter to generate</span>
+          <button class="btn-primary" id="generateBtn" disabled onclick="generate()">Generate Image</button>
+        </div>
+        <div class="active-params" id="activeParams"></div>
+      </div>
+      <div id="errorBox" class="error-box" style="display:none"></div>
+      <div id="codePanel" class="code-panel" style="display:none"></div>
+      <div id="resultsArea"></div>
+    </div>
+  </div>
+</div>
+<script>
+/* ═══════════════════════ STATE ═══════════════════════ */
+let API_KEY = "";
+let selectedModel = 0;
+let selectedRatio = "1:1";
+let selectedRes = "1K";
+let codeVisible = false;
+let codeLang = "python";
+let isGenerating = false;
+let results = [];
+let numImages = 1;
+let personGeneration = true;
+let includeTextOutput = true;
+let googleSearchEnabled = false;
+let imageSearchEnabled = false;
+let thinkingLevel = "none";
+let uploadedImageData = null;
+let uploadedImageMime = null;
+let uploadedImageName = null;
+const MODELS = [
+  { id: "gemini-3.1-flash-image-preview", name: "Nano Banana 2", badge: "3.1 Flash", accent: "#FFD600", desc: "High-efficiency, speed & volume optimized", resolutions: ["512px","1K","2K","4K"], maxImages: 4, supportsImageSearch: true, thinkingLevels: ["none","minimal","low","medium","high"] },
+  { id: "gemini-3-pro-image-preview", name: "Nano Banana Pro", badge: "3 Pro", accent: "#FF8C00", desc: "Professional asset production, advanced reasoning", resolutions: ["1K","2K","4K"], maxImages: 4, supportsImageSearch: false, thinkingLevels: ["none","low","high"] },
+  { id: "gemini-2.5-flash-image", name: "Nano Banana", badge: "2.5", accent: "#FFAB00", desc: "Speed & efficiency for high-volume tasks", resolutions: ["1K"], maxImages: 1, supportsImageSearch: false, thinkingLevels: ["none"] },
+];
+const RATIOS = ["1:1","2:3","3:2","3:4","4:3","4:5","5:4","9:16","16:9"];
+const RESOLUTIONS = ["512px", "1K", "2K", "4K"];
+const THINKING_LEVELS = ["none", "minimal", "low", "medium", "high"];
+const TEMPLATES = [
+  { icon: "📦", label: "Product Shot", prompt: "A high-resolution, studio-lit product photograph of a sleek matte-black wireless earbud case resting on a marble surface. Three-point softbox lighting with soft reflections. Ultra-realistic, sharp focus on the brushed aluminum finish. 4:3 aspect ratio." },
+  { icon: "🎨", label: "Sticker", prompt: "A kawaii-style sticker of a happy red panda holding a tiny glowing banana. Colorful, bold outlines, clean vector style, transparent background. No text." },
+  { icon: "✏️", label: "Logo + Text", prompt: "Create a modern, minimalist logo for a coffee shop called \"The Daily Grind\" with elegant serif typography. A coffee cup icon is subtly integrated into the letter D. Cream background with dark brown accents." },
+  { icon: "🏙️", label: "Isometric City", prompt: "A clear, 45-degree top-down isometric miniature 3D cartoon scene of Tokyo at night, featuring Tokyo Tower, Shibuya crossing, cherry blossoms, and glowing neon signs. Soft refined textures with realistic PBR materials and gentle lifelike lighting. Clean minimalistic composition with a dark background." },
+  { icon: "🐕", label: "3D Icon", prompt: "An icon representing a cute golden retriever puppy sitting and looking at the camera. The background is white. Make the icon in a colorful and tactile 3D style with soft realistic shadows. No text." },
+  { icon: "🌄", label: "Landscape", prompt: "A breathtaking panoramic photograph of Norwegian fjords at golden hour. Mirror-like water reflections, dramatic cliff faces, a single red wooden cabin on the shore. Shot with a wide-angle lens. Vivid, rich colors with a warm atmospheric glow." },
+  { icon: "💬", label: "Comic Strip", prompt: "Make a 3-panel comic strip in a clean, modern cartoon style. A programmer is debugging code late at night. Panel 1: staring at screen confused. Panel 2: adds a single semicolon. Panel 3: everything works, triumphant pose. Bold colors, speech bubbles with text." },
+  { icon: "🍽️", label: "Food Photo", prompt: "A professional overhead food photograph of a beautifully plated bowl of ramen on a dark wooden table. Soft natural window light from the left. Steam rising from the broth. Garnished with a soft-boiled egg, nori, green onions, and chashu pork. Shot on a 50mm lens." },
+  { icon: "🌐", label: "Grounded Weather", prompt: "Generate an infographic of the current weather in Tokyo with temperatures, conditions and a 3-day forecast. Modern flat design with weather icons.", grounding: true },
+];
+/* ═══════════════════════ INIT ═══════════════════════ */
+function init() {
+  createBananas();
+  renderModels();
+  renderRatios();
+  renderResolutions();
+  renderThinkingLevels();
+  renderTemplates();
+  renderActiveParams();
+  updateImageSearchVisibility();
+  updateStepperButtons();
+  const keyInput = document.getElementById("apiKeyInput");
+  keyInput.addEventListener("input", () => {
+    document.getElementById("launchBtn").disabled = !keyInput.value.trim();
+  });
+  keyInput.addEventListener("keydown", e => {
+    if (e.key === "Enter" && keyInput.value.trim()) launch();
+  });
+  const promptArea = document.getElementById("promptArea");
+  promptArea.addEventListener("input", () => {
+    autoResize(promptArea);
+    document.getElementById("generateBtn").disabled = !promptArea.value.trim() || isGenerating;
+  });
+  promptArea.addEventListener("keydown", e => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
+  });
+}
+function createBananas() {
+  const container = document.getElementById("bananaBg");
+  for (let i = 0; i < 10; i++) {
+    const span = document.createElement("span");
+    span.textContent = "🍌";
+    span.style.setProperty("--x", Math.random() * 100 + "%");
+    span.style.setProperty("--delay", Math.random() * 12 + "s");
+    span.style.setProperty("--dur", (14 + Math.random() * 16) + "s");
+    span.style.setProperty("--sz", (16 + Math.random() * 20) + "px");
+    span.style.setProperty("--op", (0.035 + Math.random() * 0.055));
+    container.appendChild(span);
+  }
+}
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 200) + "px";
+}
+/* ═══════════════════════ RENDER ═══════════════════════ */
+function renderModels() {
+  document.getElementById("modelCards").innerHTML = MODELS.map((m, i) => `
+    <button class="model-card ${i === selectedModel ? 'selected' : ''}" onclick="selectModel(${i})" style="${i === selectedModel ? 'border-color:' + m.accent + '; background:' + m.accent + '12' : ''}">
+      <div class="top">
+        <span class="name">${m.name}</span>
+        <span class="badge" style="background:${m.accent}">${m.badge}</span>
+      </div>
+      <div class="model-desc">${m.desc}</div>
+    </button>
+  `).join("");
+}
+function renderRatios() {
+  document.getElementById("ratioChips").innerHTML = RATIOS.map(r => `
+    <button class="chip ${r === selectedRatio ? 'selected' : ''}" onclick="selectRatio('${r}')">${r}</button>
+  `).join("");
+}
+function renderResolutions() {
+  const available = MODELS[selectedModel].resolutions;
+  if (!available.includes(selectedRes)) selectedRes = available[0];
+  document.getElementById("resChips").innerHTML = RESOLUTIONS.map(r => {
+    const ok = available.includes(r);
+    return `<button class="chip ${r === selectedRes ? 'selected' : ''}" onclick="${ok ? `selectRes('${r}')` : ''}" style="${!ok ? 'opacity:0.25;cursor:default;' : ''}">${r}</button>`;
+  }).join("");
+}
+function renderThinkingLevels() {
+  const available = MODELS[selectedModel].thinkingLevels;
+  if (!available.includes(thinkingLevel)) thinkingLevel = "none";
+  document.getElementById("thinkingChips").innerHTML = THINKING_LEVELS.map(t => {
+    const ok = available.includes(t);
+    const label = t === "none" ? "Off" : t.charAt(0).toUpperCase() + t.slice(1);
+    return `<button class="chip ${t === thinkingLevel ? 'selected' : ''}" onclick="${ok ? `selectThinking('${t}')` : ''}" style="${!ok ? 'opacity:0.25;cursor:default;' : ''}">${label}</button>`;
+  }).join("");
+}
+function renderTemplates() {
+  document.getElementById("templates").innerHTML = TEMPLATES.map((t, i) => `
+    <button class="template-btn" onclick="useTemplate(${i})">
+      <span>${t.icon}</span><span>${t.label}</span>
+    </button>
+  `).join("");
+}
+function renderResults() {
+  const area = document.getElementById("resultsArea");
+  if (results.length === 0 && !isGenerating) {
+    area.innerHTML = `
+      <div class="empty-state">
+        <div style="font-size:56px; margin-bottom:10px;">🍌</div>
+        <h3>Ready to generate</h3>
+        <p>Write a prompt or pick a template from the sidebar, then hit Generate to create images with Gemini.</p>
+      </div>`;
+    return;
+  }
+  if (results.length === 0 && isGenerating) {
+    area.innerHTML = `
+      <div class="empty-state">
+        <div class="spin" style="width:36px; height:36px; border:3px solid #333; border-top-color:var(--banana); border-radius:50%; margin-bottom:18px;"></div>
+        <p style="color:#aaa; font-size:14px;">Generating with ${MODELS[selectedModel].name}…</p>
+        <p style="color:var(--text3); font-size:12px; margin-top:5px;">This may take 10–30 seconds</p>
+      </div>`;
+    return;
+  }
+  let html = `<p class="results-title" style="margin-top:22px;">Generated Images (${results.length})</p>`;
+  results.forEach((r, i) => {
+    html += `<div class="result-card fade-up" style="animation-delay:${i * 0.05}s">`;
+    html += `<div class="result-meta"><span>${r.modelName} · ${r.time}</span>`;
+    if (r.images.length > 0) {
+      html += `<a href="${r.images[0]}" download="nano-banana-${r.ts}.png">⬇ Download</a>`;
+    }
+    html += `</div>`;
+    r.images.forEach(src => { html += `<img src="${src}" alt="Generated image">`; });
+    if (r.text) html += `<p class="resp-text">${escapeHtml(r.text)}</p>`;
+    if (r.grounded) html += `<p class="grounding-meta">🔍 Grounded with Google Search</p>`;
+    html += `<p class="resp-prompt">"${escapeHtml(r.prompt)}"</p>`;
+    html += `</div>`;
+  });
+  area.innerHTML = html;
+}
+function renderActiveParams() {
+  const el = document.getElementById("activeParams");
+  if (!el) return;
+  const model = MODELS[selectedModel];
+  const pills = [];
+  pills.push(`<span class="param-pill">${model.badge}</span>`);
+  pills.push(`<span class="param-pill">${selectedRatio}</span>`);
+  pills.push(`<span class="param-pill">${selectedRes}</span>`);
+  if (numImages > 1) pills.push(`<span class="param-pill on">${numImages}× images</span>`);
+  if (googleSearchEnabled) pills.push(`<span class="param-pill on" style="border-color:#22c55e44;color:#4ADE80;">🔍 Search</span>`);
+  if (imageSearchEnabled && model.supportsImageSearch) pills.push(`<span class="param-pill on" style="border-color:#3b82f644;color:#60A5FA;">🖼️ Img Search</span>`);
+  if (thinkingLevel !== "none") pills.push(`<span class="param-pill on">🧠 ${thinkingLevel}</span>`);
+  if (!personGeneration) pills.push(`<span class="param-pill on" style="border-color:#ef444444;color:#FF4D4D;">👤 blocked</span>`);
+  if (!includeTextOutput) pills.push(`<span class="param-pill on">IMAGE only</span>`);
+  if (uploadedImageData) pills.push(`<span class="param-pill on" style="border-color:#a855f744;color:#C084FC;">🖌️ Edit mode</span>`);
+  el.innerHTML = pills.join("");
+}
+function renderCode() {
+  const panel = document.getElementById("codePanel");
+  if (!codeVisible) { panel.style.display = "none"; return; }
+  panel.style.display = "block";
+  const prompt = document.getElementById("promptArea").value || "A cute cat wearing a tiny top hat, studio lighting";
+  const model = MODELS[selectedModel].id;
+  const code = generateCodeSnippet(codeLang, model, prompt);
+  const langs = ["python", "javascript", "curl"];
+  panel.innerHTML = `
+    <div class="code-tabs">
+      ${langs.map(l => `<button class="chip ${l === codeLang ? 'selected' : ''}" onclick="setCodeLang('${l}')" style="text-transform:capitalize">${l}</button>`).join("")}
+    </div>
+    <div class="code-wrap">
+      <div class="code-header">
+        <span>${codeLang}</span>
+        <button class="code-copy" onclick="copyCode()">Copy</button>
+      </div>
+      <pre id="codeContent"><code>${escapeHtml(code)}</code></pre>
+    </div>
+  `;
+}
+function updateImageSearchVisibility() {
+  const row = document.getElementById("imageSearchRow");
+  const model = MODELS[selectedModel];
+  if (model.supportsImageSearch) {
+    row.style.opacity = "1";
+    row.style.pointerEvents = "auto";
+  } else {
+    row.style.opacity = "0.3";
+    row.style.pointerEvents = "none";
+    if (imageSearchEnabled) {
+      imageSearchEnabled = false;
+      document.getElementById("imageSearchToggle").classList.remove("active");
+    }
+  }
+}
+/* ═══════════════════════ ACTIONS ═══════════════════════ */
+function launch() {
+  API_KEY = document.getElementById("apiKeyInput").value.trim();
+  if (!API_KEY) return;
+  document.getElementById("keyGate").style.display = "none";
+  document.getElementById("app").classList.add("active");
+  renderResults();
+}
+function resetKey() {
+  API_KEY = "";
+  document.getElementById("apiKeyInput").value = "";
+  document.getElementById("launchBtn").disabled = true;
+  document.getElementById("app").classList.remove("active");
+  document.getElementById("keyGate").style.display = "flex";
+}
+function selectModel(i) {
+  selectedModel = i;
+  const model = MODELS[i];
+  if (numImages > model.maxImages) {
+    numImages = model.maxImages;
+    document.getElementById("numImgVal").textContent = numImages;
+  }
+  renderModels();
+  renderResolutions();
+  renderThinkingLevels();
+  updateImageSearchVisibility();
+  updateStepperButtons();
+  renderActiveParams();
+  renderCode();
+}
+function selectRatio(r) { selectedRatio = r; renderRatios(); renderActiveParams(); renderCode(); }
+function selectRes(r) { selectedRes = r; renderResolutions(); renderActiveParams(); renderCode(); }
+function selectThinking(t) { thinkingLevel = t; renderThinkingLevels(); renderActiveParams(); renderCode(); }
+function changeNumImages(delta) {
+  numImages = Math.max(1, Math.min(MODELS[selectedModel].maxImages, numImages + delta));
+  document.getElementById("numImgVal").textContent = numImages;
+  updateStepperButtons();
+  renderActiveParams();
+  renderCode();
+}
+function updateStepperButtons() {
+  document.getElementById("numImgDown").disabled = numImages <= 1;
+  document.getElementById("numImgUp").disabled = numImages >= MODELS[selectedModel].maxImages;
+}
+function togglePerson() {
+  personGeneration = !personGeneration;
+  document.getElementById("personToggle").classList.toggle("active", personGeneration);
+  renderActiveParams(); renderCode();
+}
+function toggleTextOutput() {
+  includeTextOutput = !includeTextOutput;
+  document.getElementById("textOutputToggle").classList.toggle("active", includeTextOutput);
+  renderActiveParams(); renderCode();
+}
+function toggleSearch() {
+  googleSearchEnabled = !googleSearchEnabled;
+  document.getElementById("searchToggle").classList.toggle("active", googleSearchEnabled);
+  renderActiveParams(); renderCode();
+}
+function toggleImageSearch() {
+  if (!MODELS[selectedModel].supportsImageSearch) return;
+  imageSearchEnabled = !imageSearchEnabled;
+  document.getElementById("imageSearchToggle").classList.toggle("active", imageSearchEnabled);
+  renderActiveParams(); renderCode();
+}
+function useTemplate(i) {
+  const promptArea = document.getElementById("promptArea");
+  promptArea.value = TEMPLATES[i].prompt;
+  autoResize(promptArea);
+  document.getElementById("generateBtn").disabled = false;
+  if (TEMPLATES[i].grounding && !googleSearchEnabled) {
+    googleSearchEnabled = true;
+    document.getElementById("searchToggle").classList.add("active");
+    renderActiveParams();
+  }
+  renderCode();
+}
+function toggleCode() {
+  codeVisible = !codeVisible;
+  document.getElementById("codeToggle").textContent = codeVisible ? "Hide API Code" : "Show API Code";
+  document.getElementById("codeToggle").style.borderColor = codeVisible ? "var(--banana)" : "";
+  document.getElementById("codeToggle").style.color = codeVisible ? "var(--banana)" : "";
+  renderCode();
+}
+function setCodeLang(l) { codeLang = l; renderCode(); }
+function copyCode() {
+  navigator.clipboard.writeText(document.getElementById("codeContent").textContent);
+  const btn = document.querySelector(".code-copy");
+  btn.textContent = "✓ Copied";
+  setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+}
+/* ═══════════════════════ IMAGE UPLOAD ═══════════════════════ */
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    uploadedImageMime = file.type;
+    uploadedImageData = dataUrl.split(",")[1];
+    uploadedImageName = file.name;
+    renderUploadArea();
+    document.getElementById("promptArea").placeholder = "Describe how to edit the uploaded image…";
+  };
+  reader.readAsDataURL(file);
+}
+function removeUploadedImage() {
+  uploadedImageData = null;
+  uploadedImageMime = null;
+  uploadedImageName = null;
+  document.getElementById("imageUpload").value = "";
+  renderUploadArea();
+  document.getElementById("promptArea").placeholder = "Describe the image you want to generate… or describe edits to an uploaded image";
+}
+function renderUploadArea() {
+  const area = document.getElementById("uploadArea");
+  if (uploadedImageData) {
+    area.innerHTML = `
+      <div class="upload-preview">
+        <img src="data:${uploadedImageMime};base64,${uploadedImageData}" alt="Uploaded">
+        <span class="upload-name">${escapeHtml(uploadedImageName)}</span>
+        <button class="upload-remove" onclick="removeUploadedImage()" title="Remove image">×</button>
+      </div>
+      <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">📎 Change</button>
+    `;
+  } else {
+    area.innerHTML = `
+      <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">📎 Upload Image</button>
+      <span style="font-size:10px; color:var(--text3);">Upload an image to edit it with your prompt</span>
+    `;
+  }
+  renderActiveParams();
+}
+/* ═══════════════════════ BUILD REQUEST ═══════════════════════ */
+function buildRequestBody(prompt) {
+  const model = MODELS[selectedModel];
+  const modalities = includeTextOutput ? ["TEXT", "IMAGE"] : ["IMAGE"];
+  const parts = [{ text: prompt }];
+  if (uploadedImageData) {
+    parts.push({ inlineData: { mimeType: uploadedImageMime, data: uploadedImageData } });
+  }
+  const body = {
+    contents: [{ parts }],
+    generationConfig: {
+      responseModalities: modalities,
+      imageConfig: {
+        aspectRatio: selectedRatio,
+      },
+    },
+  };
+  if (selectedRes !== "1K") body.generationConfig.imageConfig.imageSize = selectedRes;
+  if (numImages > 1) body.generationConfig.imageConfig.numberOfImages = numImages;
+  const tools = [];
+  if (googleSearchEnabled && !imageSearchEnabled) {
+    tools.push({ googleSearch: {} });
+  } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+    tools.push({ google_search: { searchTypes: { webSearch: {}, imageSearch: {} } } });
+  } else if (imageSearchEnabled && model.supportsImageSearch) {
+    tools.push({ google_search: { searchTypes: { imageSearch: {} } } });
+  }
+  if (tools.length > 0) body.tools = tools;
+  if (thinkingLevel !== "none") {
+    body.generationConfig.thinkingConfig = { thinkingLevel: thinkingLevel };
+  }
+  return body;
+}
+/* ═══════════════════════ GENERATE ═══════════════════════ */
+async function generate() {
+  const prompt = document.getElementById("promptArea").value.trim();
+  if (!prompt || isGenerating) return;
+  isGenerating = true;
+  document.getElementById("generateBtn").disabled = true;
+  document.getElementById("generateBtn").innerHTML = '<div class="spin" style="width:14px;height:14px;border:2px solid #00000033;border-top-color:#000;border-radius:50%;"></div> Generating…';
+  document.getElementById("errorBox").style.display = "none";
+  renderResults();
+  try {
+    const model = MODELS[selectedModel];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model.id}:generateContent?key=${API_KEY}`;
+    const body = buildRequestBody(prompt);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `API error ${res.status}`);
+    }
+    const data = await res.json();
+    const candidate = data?.candidates?.[0];
+    if (!candidate) throw new Error("No response candidate from model");
+    let images = [];
+    let text = "";
+    for (const part of (candidate.content?.parts || [])) {
+      if (part.text) text += part.text;
+      if (part.inlineData) {
+        images.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+      }
+    }
+    if (images.length === 0 && !text) throw new Error("No image or text returned");
+    const now = new Date();
+    results.unshift({
+      images, text, prompt,
+      modelName: model.name,
+      ts: Date.now(),
+      time: now.toLocaleTimeString(),
+      grounded: googleSearchEnabled || imageSearchEnabled,
+    });
+  } catch (e) {
+    document.getElementById("errorBox").style.display = "block";
+    document.getElementById("errorBox").innerHTML = `<strong>Error:</strong> ${escapeHtml(e.message)}`;
+  } finally {
+    isGenerating = false;
+    document.getElementById("generateBtn").disabled = !document.getElementById("promptArea").value.trim();
+    document.getElementById("generateBtn").innerHTML = "Generate Image";
+    renderResults();
+  }
+}
+/* ═══════════════════════ CODE GEN ═══════════════════════ */
+function generateCodeSnippet(lang, modelId, prompt) {
+  const p = prompt.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+  const model = MODELS[selectedModel];
+  const pyMod = includeTextOutput ? "['TEXT', 'IMAGE']" : "['IMAGE']";
+  const jsMod = includeTextOutput ? '["TEXT", "IMAGE"]' : '["IMAGE"]';
+  if (lang === "python") {
+    let c = `from google import genai
+from google.genai import types
+from PIL import Image
+client = genai.Client()
+response = client.models.generate_content(
+    model="${modelId}",
+    contents=["${p}"],
+    config=types.GenerateContentConfig(
+        response_modalities=${pyMod},
+        image_config=types.ImageConfig(
+            aspect_ratio="${selectedRatio}",`;
+    if (selectedRes !== "1K") c += `\n            image_size="${selectedRes}",`;
+    if (numImages > 1) c += `\n            number_of_images=${numImages},`;
+    c += `\n        ),`;
+    if (thinkingLevel !== "none") c += `\n        thinking_config=types.ThinkingConfig(thinking_level="${thinkingLevel}"),`;
+    const t = [];
+    if (googleSearchEnabled && !imageSearchEnabled) {
+      t.push('{"google_search": {}}');
+    } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+      t.push('{"google_search": {"search_types": {"web_search": {}, "image_search": {}}}}');
+    } else if (imageSearchEnabled && model.supportsImageSearch) {
+      t.push('{"google_search": {"search_types": {"image_search": {}}}}');
+    }
+    if (t.length > 0) c += `\n        tools=[${t.join(', ')}],`;
+    c += `\n    )
+)
+for part in response.parts:
+    if part.text is not None:
+        print(part.text)
+    elif part.inline_data is not None:
+        image = part.as_image()
+        image.save("generated_image.png")`;
+    return c;
+  }
+  if (lang === "javascript") {
+    let cfg = `\n      responseModalities: ${jsMod},
+      imageConfig: {
+        aspectRatio: "${selectedRatio}",`;
+    if (selectedRes !== "1K") cfg += `\n        imageSize: "${selectedRes}",`;
+    if (numImages > 1) cfg += `\n        numberOfImages: ${numImages},`;
+    cfg += `\n      },`;
+    if (thinkingLevel !== "none") cfg += `\n      thinkingConfig: { thinkingLevel: "${thinkingLevel}" },`;
+    const t2 = [];
+    if (googleSearchEnabled && !imageSearchEnabled) {
+      t2.push('{ googleSearch: {} }');
+    } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+      t2.push('{ google_search: { searchTypes: { webSearch: {}, imageSearch: {} } } }');
+    } else if (imageSearchEnabled && model.supportsImageSearch) {
+      t2.push('{ google_search: { searchTypes: { imageSearch: {} } } }');
+    }
+    return `const API_KEY = "YOUR_API_KEY";
+const MODEL = "${modelId}";
+const response = await fetch(
+  \`https://generativelanguage.googleapis.com/v1beta/models/\${MODEL}:generateContent?key=\${API_KEY}\`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: "${p}" }] }],
+      generationConfig: {${cfg}
+      }${t2.length > 0 ? `,\n      tools: [${t2.join(', ')}]` : ''}
+    })
+  }
+);
+const data = await response.json();
+for (const part of data.candidates[0].content.parts) {
+  if (part.text) console.log(part.text);
+  if (part.inlineData) {
+    const src = \`data:\${part.inlineData.mimeType};base64,\${part.inlineData.data}\`;
+    document.getElementById("img").src = src;
+  }
+}`;
+  }
+  // curl
+  let gc = `\n    "responseModalities": ${jsMod},
+    "imageConfig": {
+      "aspectRatio": "${selectedRatio}"`;
+  if (selectedRes !== "1K") gc += `,\n      "imageSize": "${selectedRes}"`;
+  if (numImages > 1) gc += `,\n      "numberOfImages": ${numImages}`;
+  gc += `\n    }`;
+  if (thinkingLevel !== "none") gc += `,\n    "thinkingConfig": { "thinkingLevel": "${thinkingLevel}" }`;
+  const ct = [];
+  if (googleSearchEnabled && !imageSearchEnabled) {
+    ct.push('{"googleSearch": {}}');
+  } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+    ct.push('{"google_search": {"searchTypes": {"webSearch": {}, "imageSearch": {}}}}');
+  } else if (imageSearchEnabled && model.supportsImageSearch) {
+    ct.push('{"google_search": {"searchTypes": {"imageSearch": {}}}}');
+  }
+  let toolsJson = ct.length > 0 ? `,\n  "tools": [${ct.join(', ')}]` : "";
+  return `curl -X POST \\
+  "https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+  "contents": [{"parts": [{"text": "${p}"}]}],
+  "generationConfig": {${gc}
+  }${toolsJson}
+}'`;
+}
+/* ═══════════════════════ UTILS ═══════════════════════ */
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+/* ═══════════════════════ GO ═══════════════════════ */
+init();
+</script>
+</body>
+</html>
