@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nano Banana">
+<meta name="theme-color" content="#08080A">
+<title>Nano Banana Playground</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #08080A;
+    --surface: #111113;
+    --surface2: #19191D;
+    --surface3: #1e1e22;
+    --border: #222228;
+    --border2: #2e2e36;
+    --text: #e8e8ed;
+    --text2: #9898a6;
+    --text3: #5c5c6e;
+    --banana: #FFD600;
+    --banana-dim: #FFD60018;
+    --orange: #FF8C00;
+    --red: #FF4D4D;
+    --red-bg: #2a0f0f;
+    --green: #4ADE80;
+    --green-dim: #4ADE8018;
+    --blue: #60A5FA;
+    --blue-dim: #60A5FA18;
+    --purple: #C084FC;
+    --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --serif: 'Playfair Display', Georgia, serif;
+    --mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  ::-webkit-scrollbar { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  @keyframes slideDown {
+    from { transform: translateY(0); }
+    to   { transform: translateY(100%); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .spin { animation: spin .7s linear infinite; }
+  .fade-up { animation: fadeUp .35s ease-out both; }
+
+  /* ─── KEY GATE ─── */
+  #keyGate {
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; padding-top: calc(24px + var(--safe-top));
+  }
+  .key-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 24px;
+    padding: 40px 28px; max-width: 400px; width: 100%; text-align: center;
+    animation: scaleIn .4s ease-out both;
+  }
+  .key-card .logo-emoji { font-size: 56px; margin-bottom: 8px; }
+  .key-card h1 {
+    font-family: var(--serif); font-size: 26px; font-weight: 600; color: #fff; margin: 4px 0 10px;
+  }
+  .key-card h1 span { color: var(--banana); }
+  .key-card .desc { color: var(--text2); font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
+  .key-card a { color: var(--banana); font-size: 13px; display: inline-block; margin-bottom: 20px; }
+  .key-card .note { font-size: 11px; color: var(--text3); margin-top: 16px; line-height: 1.5; }
+
+  input[type="password"], input[type="text"] {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 16px 18px; color: var(--text); font-size: 16px;
+    font-family: var(--font); transition: border-color .2s;
+    -webkit-appearance: none; appearance: none;
+  }
+  input:focus { outline: none; border-color: var(--banana); }
+
+  .btn-primary {
+    background: var(--banana); color: #000; border: none; border-radius: 14px;
+    padding: 16px 24px; font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: var(--font); transition: all .15s; display: inline-flex;
+    align-items: center; justify-content: center; gap: 8px;
+    -webkit-tap-highlight-color: transparent; min-height: 50px;
+  }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-primary:disabled { opacity: .35; cursor: default; }
+
+  /* ─── MAIN APP ─── */
+  #app { display: none; }
+  #app.active {
+    display: flex; flex-direction: column;
+    min-height: 100vh; min-height: 100dvh;
+  }
+
+  /* ─── HEADER ─── */
+  .app-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; padding-top: calc(10px + var(--safe-top));
+    background: var(--bg); position: sticky; top: 0; z-index: 10;
+    border-bottom: 1px solid #1a1a1e;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: rgba(8,8,10,.85);
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-left .logo { font-size: 22px; }
+  .header-left h1 { font-family: var(--serif); font-size: 16px; font-weight: 600; }
+  .header-left h1 span { color: var(--banana); }
+  .header-btn {
+    background: transparent; border: 1px solid var(--border2); border-radius: 10px;
+    padding: 8px 14px; font-size: 12px; color: var(--text2); cursor: pointer;
+    font-family: var(--font); min-height: 36px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .header-btn:active { background: #ffffff08; }
+
+  /* ─── SCROLLABLE CONTENT ─── */
+  .scroll-content {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(180px + var(--safe-bottom));
+  }
+
+  /* ─── MODEL SELECTOR (horizontal scroll) ─── */
+  .model-strip {
+    display: flex; gap: 10px; padding: 14px 16px; overflow-x: auto;
+    scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .model-strip::-webkit-scrollbar { display: none; }
+  .m-model-card {
+    flex: 0 0 auto; width: 160px; scroll-snap-align: start;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 16px; padding: 14px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: all .15s;
+  }
+  .m-model-card:active { transform: scale(0.97); }
+  .m-model-card.selected { border-color: var(--banana); background: var(--banana-dim); }
+  .m-model-card .m-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .m-model-card .m-name { font-weight: 600; color: #eee; font-size: 13px; }
+  .m-model-card .m-badge {
+    font-size: 9px; padding: 2px 7px; border-radius: 6px; font-weight: 700; color: #000;
+  }
+  .m-model-card .m-desc { font-size: 10.5px; color: var(--text3); line-height: 1.35; }
+
+  /* ─── CONFIG STRIP (horizontal chips) ─── */
+  .config-section { padding: 0 16px; margin-bottom: 10px; }
+  .config-label {
+    font-size: 10px; color: var(--text3); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .config-label .tag {
+    font-size: 8px; padding: 1px 5px; border-radius: 3px;
+    font-weight: 700; background: #22c55e22; color: #4ADE80;
+  }
+  .chip-scroll {
+    display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .chip-scroll::-webkit-scrollbar { display: none; }
+  .m-chip {
+    flex: 0 0 auto; background: transparent; border: 1px solid var(--border2);
+    border-radius: 10px; padding: 8px 14px; font-size: 13px; color: var(--text2);
+    cursor: pointer; font-family: var(--mono); transition: all .15s;
+    -webkit-tap-highlight-color: transparent; min-height: 38px;
+    display: flex; align-items: center;
+  }
+  .m-chip:active { transform: scale(0.95); }
+  .m-chip.selected { border-color: var(--banana); color: var(--banana); background: var(--banana-dim); }
+  .m-chip.disabled { opacity: .25; pointer-events: none; }
+
+  /* ─── SETTINGS SHEET ─── */
+  .sheet-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    z-index: 90; animation: fadeIn .2s ease-out;
+  }
+  .sheet-backdrop.visible { display: block; }
+  .sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    max-height: 75vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 0 20px calc(20px + var(--safe-bottom));
+    transform: translateY(100%); transition: transform .35s cubic-bezier(.32,.72,0,1);
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle {
+    width: 36px; height: 4px; background: #444; border-radius: 2px;
+    margin: 10px auto 16px;
+  }
+  .sheet-title {
+    font-family: var(--serif); font-size: 18px; font-weight: 600;
+    margin-bottom: 16px; color: #fff;
+  }
+  .sheet-section { margin-bottom: 18px; }
+  .sheet-section-label {
+    font-size: 10px; color: var(--text3); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+  }
+
+  /* ─── TOGGLE ROWS ─── */
+  .m-toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; min-height: 48px;
+  }
+  .m-toggle-info { flex: 1; }
+  .m-toggle-label { font-size: 14px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .m-toggle-hint { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .m-toggle {
+    position: relative; width: 44px; height: 28px; cursor: pointer;
+    background: #2a2a32; border-radius: 14px; transition: background .2s;
+    border: none; padding: 0; flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .m-toggle::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #666; transition: all .2s;
+  }
+  .m-toggle.active { background: var(--banana-dim); }
+  .m-toggle.active::after { left: 19px; background: var(--banana); }
+  .m-toggle.green.active { background: var(--green-dim); }
+  .m-toggle.green.active::after { background: var(--green); }
+  .m-toggle.blue.active { background: var(--blue-dim); }
+  .m-toggle.blue.active::after { background: var(--blue); }
+
+  /* ─── STEPPER ─── */
+  .m-stepper {
+    display: flex; align-items: center; gap: 0;
+    border: 1px solid var(--border2); border-radius: 10px; overflow: hidden;
+  }
+  .m-stepper button {
+    background: transparent; border: none; color: var(--text2); cursor: pointer;
+    font-family: var(--mono); font-size: 20px; padding: 6px 14px;
+    display: flex; align-items: center; justify-content: center;
+    min-width: 44px; min-height: 40px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .m-stepper button:active { background: #ffffff08; }
+  .m-stepper button:disabled { opacity: .2; }
+  .m-stepper .m-stepper-val {
+    font-family: var(--mono); font-size: 15px; color: var(--banana);
+    min-width: 28px; text-align: center; font-weight: 600;
+  }
+
+  /* ─── TEMPLATES (horizontal scroll) ─── */
+  .template-strip {
+    display: flex; gap: 8px; padding: 8px 16px; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .template-strip::-webkit-scrollbar { display: none; }
+  .m-template {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 14px; cursor: pointer;
+    font-family: var(--font); font-size: 13px; color: var(--text2);
+    -webkit-tap-highlight-color: transparent; white-space: nowrap;
+    min-height: 44px;
+  }
+  .m-template:active { background: var(--surface2); transform: scale(0.97); }
+  .m-template .t-icon { font-size: 16px; }
+
+  /* ─── RESULTS ─── */
+  .results-area { padding: 14px 16px; }
+  .results-label { font-size: 12px; color: var(--text3); font-weight: 500; margin-bottom: 12px; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 300px; text-align: center; padding: 20px;
+  }
+  .empty-state .empty-emoji { font-size: 52px; margin-bottom: 10px; }
+  .empty-state h3 {
+    font-family: var(--serif); color: #eee; font-size: 18px; font-weight: 500;
+    margin: 4px 0;
+  }
+  .empty-state p { color: var(--text3); font-size: 13px; max-width: 280px; line-height: 1.6; }
+
+  .m-result-card {
+    background: var(--surface); border: 1px solid #1e1e24; border-radius: 18px;
+    padding: 14px; margin-bottom: 14px; animation: fadeUp .3s ease-out both;
+  }
+  .m-result-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .m-result-meta span { font-size: 11px; color: var(--text3); }
+  .m-result-meta a {
+    font-size: 12px; color: var(--banana); text-decoration: none;
+    padding: 6px 12px; border: 1px solid var(--banana); border-radius: 8px;
+    min-height: 32px; display: flex; align-items: center;
+  }
+  .m-result-meta a:active { background: var(--banana-dim); }
+  .m-result-card img { width: 100%; border-radius: 14px; display: block; margin-bottom: 8px; }
+  .m-result-card .resp-text { font-size: 13px; color: #ccc; line-height: 1.6; margin-top: 10px; }
+  .m-result-card .resp-prompt { font-size: 11px; color: var(--text3); font-style: italic; margin-top: 8px; }
+  .m-result-card .grounding-meta { font-size: 10px; color: var(--green); opacity: .7; margin-top: 6px; }
+
+  .error-box {
+    background: var(--red-bg); border: 1px solid #5c1a1a; border-radius: 14px;
+    padding: 14px 16px; margin: 10px 16px; font-size: 13px; color: var(--red); line-height: 1.5;
+  }
+
+  /* ─── BOTTOM PROMPT BAR ─── */
+  .prompt-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    background: var(--surface); border-top: 1px solid #1e1e24;
+    padding: 10px 14px calc(10px + var(--safe-bottom));
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: rgba(17,17,19,.92);
+  }
+
+  /* ─── UPLOAD AREA (inside prompt bar) ─── */
+  .m-upload-area {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    padding-bottom: 8px; border-bottom: 1px solid #1e1e24;
+  }
+  .m-upload-area.empty { display: none; }
+  .m-upload-preview {
+    display: flex; align-items: center; gap: 8px; background: var(--surface2);
+    border: 1px solid var(--border2); border-radius: 10px; padding: 4px 10px 4px 4px;
+    flex: 1;
+  }
+  .m-upload-preview img { width: 34px; height: 34px; border-radius: 7px; object-fit: cover; }
+  .m-upload-preview .upload-name {
+    font-size: 11px; color: var(--text2); flex: 1; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .m-upload-remove {
+    background: none; border: none; color: var(--text3); cursor: pointer;
+    font-size: 18px; padding: 4px 6px; min-width: 32px; min-height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .m-upload-remove:active { color: var(--red); }
+
+  .prompt-row { display: flex; gap: 8px; align-items: flex-end; }
+  .prompt-actions {
+    display: flex; gap: 4px; flex-shrink: 0; align-items: flex-end; padding-bottom: 2px;
+  }
+  .prompt-icon-btn {
+    width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--border2);
+    background: transparent; color: var(--text3); font-size: 18px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+  }
+  .prompt-icon-btn:active { background: #ffffff08; }
+
+  .prompt-input-wrap {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 10px 14px; transition: border-color .2s;
+    display: flex; align-items: flex-end; gap: 8px;
+  }
+  .prompt-input-wrap:focus-within { border-color: #444; }
+  .prompt-input-wrap textarea {
+    flex: 1; width: 100%; background: transparent; border: none; color: var(--text);
+    font-size: 15px; font-family: var(--font); resize: none; line-height: 1.5;
+    min-height: 22px; max-height: 120px;
+    -webkit-appearance: none;
+  }
+  .prompt-input-wrap textarea:focus { outline: none; }
+  .prompt-input-wrap textarea::placeholder { color: var(--text3); }
+
+  .send-btn {
+    width: 42px; height: 42px; border-radius: 12px; border: none;
+    background: var(--banana); color: #000; font-size: 18px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+    transition: all .15s;
+  }
+  .send-btn:active { transform: scale(0.9); }
+  .send-btn:disabled { opacity: .3; }
+  .send-btn .spin {
+    width: 18px; height: 18px; border: 2px solid #00000033;
+    border-top-color: #000; border-radius: 50%;
+  }
+
+  /* ─── ACTIVE CONFIG PILLS ─── */
+  .config-pills {
+    display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;
+  }
+  .m-pill {
+    font-size: 10px; padding: 3px 8px; border-radius: 6px;
+    background: #ffffff06; border: 1px solid #2a2a32; color: var(--text3);
+    font-family: var(--mono);
+  }
+  .m-pill.on { border-color: #334; color: var(--text2); }
+
+  .sheet-divider { border: none; border-top: 1px solid #1e1e24; margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<!-- ════════ KEY GATE ════════ -->
+<div id="keyGate">
+  <div class="key-card">
+    <div class="logo-emoji">🍌</div>
+    <h1>Nano Banana <span>Playground</span></h1>
+    <p class="desc">Generate images with Gemini's native image generation. Enter your API key to start.</p>
+    <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a free API key from AI Studio &rarr;</a>
+    <br>
+    <input type="password" id="apiKeyInput" placeholder="Paste your Gemini API key…" autocomplete="off" autocorrect="off" autocapitalize="off">
+    <br><br>
+    <button class="btn-primary" style="width:100%;" id="launchBtn" disabled onclick="launch()">Launch Playground</button>
+    <p class="note">Your key stays in this browser tab only &mdash; never stored or sent anywhere except Google's API.</p>
+  </div>
+</div>
+
+<!-- ════════ MAIN APP ════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <span class="logo">🍌</span>
+      <h1>Nano Banana <span>Playground</span></h1>
+    </div>
+    <button class="header-btn" onclick="resetKey()">Key</button>
+  </header>
+
+  <!-- Scrollable content -->
+  <div class="scroll-content" id="scrollContent">
+
+    <!-- Model selector (horizontal) -->
+    <div class="model-strip" id="modelStrip"></div>
+
+    <!-- Ratio + Resolution chips -->
+    <div class="config-section">
+      <div class="config-label">Aspect Ratio</div>
+      <div class="chip-scroll" id="ratioChips"></div>
+    </div>
+    <div class="config-section">
+      <div class="config-label">Resolution</div>
+      <div class="chip-scroll" id="resChips"></div>
+    </div>
+
+    <!-- Quick Prompts (horizontal) -->
+    <div class="config-section">
+      <div class="config-label">Quick Prompts</div>
+    </div>
+    <div class="template-strip" id="templates"></div>
+
+    <!-- Error -->
+    <div id="errorBox" class="error-box" style="display:none"></div>
+
+    <!-- Results -->
+    <div class="results-area" id="resultsArea"></div>
+  </div>
+
+  <!-- Settings Sheet Backdrop -->
+  <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
+
+  <!-- Settings Bottom Sheet -->
+  <div class="sheet" id="settingsSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Settings</div>
+
+    <div class="sheet-section">
+      <div class="sheet-section-label">Generation</div>
+      <div class="m-toggle-row">
+        <div class="m-toggle-info">
+          <div class="m-toggle-label">🔢 Number of Images</div>
+        </div>
+        <div class="m-stepper">
+          <button onclick="changeNumImages(-1)" id="numImgDown">&minus;</button>
+          <span class="m-stepper-val" id="numImgVal">1</span>
+          <button onclick="changeNumImages(1)" id="numImgUp">+</button>
+        </div>
+      </div>
+      <div class="m-toggle-row">
+        <div class="m-toggle-info">
+          <div class="m-toggle-label">👤 Person Generation</div>
+          <div class="m-toggle-hint">Allow generating people</div>
+        </div>
+        <button class="m-toggle active" id="personToggle" onclick="togglePerson()"></button>
+      </div>
+      <div class="m-toggle-row">
+        <div class="m-toggle-info">
+          <div class="m-toggle-label">📝 Text Output</div>
+          <div class="m-toggle-hint">Return TEXT + IMAGE</div>
+        </div>
+        <button class="m-toggle active" id="textOutputToggle" onclick="toggleTextOutput()"></button>
+      </div>
+    </div>
+
+    <hr class="sheet-divider">
+
+    <div class="sheet-section">
+      <div class="sheet-section-label">Tools &amp; Grounding</div>
+      <div class="m-toggle-row">
+        <div class="m-toggle-info">
+          <div class="m-toggle-label">🔍 Google Search</div>
+          <div class="m-toggle-hint">Ground with web search</div>
+        </div>
+        <button class="m-toggle green" id="searchToggle" onclick="toggleSearch()"></button>
+      </div>
+      <div class="m-toggle-row" id="imageSearchRow">
+        <div class="m-toggle-info">
+          <div class="m-toggle-label">🖼️ Image Search</div>
+          <div class="m-toggle-hint">Google Images (3.1 Flash only)</div>
+        </div>
+        <button class="m-toggle blue" id="imageSearchToggle" onclick="toggleImageSearch()"></button>
+      </div>
+    </div>
+
+    <hr class="sheet-divider">
+
+    <div class="sheet-section">
+      <div class="sheet-section-label">Thinking Level</div>
+      <div class="chip-scroll" id="thinkingChips"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Prompt Bar -->
+  <div class="prompt-bar">
+    <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+    <div class="m-upload-area empty" id="uploadArea"></div>
+    <div class="prompt-row">
+      <div class="prompt-actions">
+        <button class="prompt-icon-btn" onclick="document.getElementById('imageUpload').click()" title="Upload image">📎</button>
+        <button class="prompt-icon-btn" onclick="openSheet()" title="Settings">⚙️</button>
+      </div>
+      <div class="prompt-input-wrap">
+        <textarea id="promptArea" placeholder="Describe an image…" rows="1"></textarea>
+      </div>
+      <button class="send-btn" id="generateBtn" disabled onclick="generate()">▲</button>
+    </div>
+    <div class="config-pills" id="activeParams"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════ STATE ═══════════════════════ */
+let API_KEY = "";
+let selectedModel = 0;
+let selectedRatio = "1:1";
+let selectedRes = "1K";
+let isGenerating = false;
+let results = [];
+let numImages = 1;
+let personGeneration = true;
+let includeTextOutput = true;
+let googleSearchEnabled = false;
+let imageSearchEnabled = false;
+let thinkingLevel = "none";
+let uploadedImageData = null;
+let uploadedImageMime = null;
+let uploadedImageName = null;
+
+const MODELS = [
+  { id: "gemini-3.1-flash-image-preview", name: "Nano Banana 2", badge: "3.1 Flash", accent: "#FFD600", desc: "Speed & volume optimized", resolutions: ["512px","1K","2K","4K"], maxImages: 4, supportsImageSearch: true, thinkingLevels: ["none","minimal","low","medium","high"] },
+  { id: "gemini-3-pro-image-preview", name: "Nano Banana Pro", badge: "3 Pro", accent: "#FF8C00", desc: "Pro asset production", resolutions: ["1K","2K","4K"], maxImages: 4, supportsImageSearch: false, thinkingLevels: ["none","low","high"] },
+  { id: "gemini-2.5-flash-image", name: "Nano Banana", badge: "2.5", accent: "#FFAB00", desc: "Fast & efficient", resolutions: ["1K"], maxImages: 1, supportsImageSearch: false, thinkingLevels: ["none"] },
+];
+const RATIOS = ["1:1","2:3","3:2","3:4","4:3","9:16","16:9"];
+const RESOLUTIONS = ["512px","1K","2K","4K"];
+const THINKING_LEVELS = ["none","minimal","low","medium","high"];
+const TEMPLATES = [
+  { icon: "📦", label: "Product", prompt: "A high-resolution, studio-lit product photograph of a sleek matte-black wireless earbud case resting on a marble surface. Three-point softbox lighting with soft reflections. Ultra-realistic, sharp focus on the brushed aluminum finish. 4:3 aspect ratio." },
+  { icon: "🎨", label: "Sticker", prompt: "A kawaii-style sticker of a happy red panda holding a tiny glowing banana. Colorful, bold outlines, clean vector style, transparent background. No text." },
+  { icon: "✏️", label: "Logo", prompt: "Create a modern, minimalist logo for a coffee shop called \"The Daily Grind\" with elegant serif typography. A coffee cup icon is subtly integrated into the letter D. Cream background with dark brown accents." },
+  { icon: "🏙️", label: "Isometric", prompt: "A clear, 45-degree top-down isometric miniature 3D cartoon scene of Tokyo at night, featuring Tokyo Tower, Shibuya crossing, cherry blossoms, and glowing neon signs. Soft refined textures with realistic PBR materials and gentle lifelike lighting. Clean minimalistic composition with a dark background." },
+  { icon: "🐕", label: "3D Icon", prompt: "An icon representing a cute golden retriever puppy sitting and looking at the camera. The background is white. Make the icon in a colorful and tactile 3D style with soft realistic shadows. No text." },
+  { icon: "🌄", label: "Landscape", prompt: "A breathtaking panoramic photograph of Norwegian fjords at golden hour. Mirror-like water reflections, dramatic cliff faces, a single red wooden cabin on the shore. Shot with a wide-angle lens. Vivid, rich colors with a warm atmospheric glow." },
+  { icon: "💬", label: "Comic", prompt: "Make a 3-panel comic strip in a clean, modern cartoon style. A programmer is debugging code late at night. Panel 1: staring at screen confused. Panel 2: adds a single semicolon. Panel 3: everything works, triumphant pose. Bold colors, speech bubbles with text." },
+  { icon: "🍽️", label: "Food", prompt: "A professional overhead food photograph of a beautifully plated bowl of ramen on a dark wooden table. Soft natural window light from the left. Steam rising from the broth. Garnished with a soft-boiled egg, nori, green onions, and chashu pork. Shot on a 50mm lens." },
+  { icon: "🌐", label: "Weather", prompt: "Generate an infographic of the current weather in Tokyo with temperatures, conditions and a 3-day forecast. Modern flat design with weather icons.", grounding: true },
+];
+
+/* ═══════════════════════ INIT ═══════════════════════ */
+function init() {
+  renderModels();
+  renderRatios();
+  renderResolutions();
+  renderThinkingLevels();
+  renderTemplates();
+  renderActiveParams();
+  updateImageSearchVisibility();
+  updateStepperButtons();
+
+  const keyInput = document.getElementById("apiKeyInput");
+  keyInput.addEventListener("input", () => {
+    document.getElementById("launchBtn").disabled = !keyInput.value.trim();
+  });
+  keyInput.addEventListener("keydown", e => {
+    if (e.key === "Enter" && keyInput.value.trim()) launch();
+  });
+
+  const promptArea = document.getElementById("promptArea");
+  promptArea.addEventListener("input", () => {
+    autoResize(promptArea);
+    document.getElementById("generateBtn").disabled = !promptArea.value.trim() || isGenerating;
+  });
+  promptArea.addEventListener("keydown", e => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); generate(); }
+  });
+
+  // Touch handling for sheet
+  let sheetStartY = 0;
+  const sheet = document.getElementById("settingsSheet");
+  sheet.addEventListener("touchstart", e => {
+    sheetStartY = e.touches[0].clientY;
+  }, { passive: true });
+  sheet.addEventListener("touchmove", e => {
+    const dy = e.touches[0].clientY - sheetStartY;
+    if (dy > 80 && sheet.scrollTop <= 0) closeSheet();
+  }, { passive: true });
+}
+
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+}
+
+/* ═══════════════════════ SHEET ═══════════════════════ */
+function openSheet() {
+  document.getElementById("settingsSheet").classList.add("open");
+  document.getElementById("sheetBackdrop").classList.add("visible");
+  document.body.style.overflow = "hidden";
+}
+function closeSheet() {
+  document.getElementById("settingsSheet").classList.remove("open");
+  document.getElementById("sheetBackdrop").classList.remove("visible");
+  document.body.style.overflow = "";
+}
+
+/* ═══════════════════════ RENDER ═══════════════════════ */
+function renderModels() {
+  document.getElementById("modelStrip").innerHTML = MODELS.map((m, i) => `
+    <button class="m-model-card ${i === selectedModel ? 'selected' : ''}" onclick="selectModel(${i})" style="${i === selectedModel ? 'border-color:'+m.accent+';background:'+m.accent+'12' : ''}">
+      <div class="m-top">
+        <span class="m-name">${m.name}</span>
+        <span class="m-badge" style="background:${m.accent}">${m.badge}</span>
+      </div>
+      <div class="m-desc">${m.desc}</div>
+    </button>
+  `).join("");
+}
+
+function renderRatios() {
+  document.getElementById("ratioChips").innerHTML = RATIOS.map(r => `
+    <button class="m-chip ${r === selectedRatio ? 'selected' : ''}" onclick="selectRatio('${r}')">${r}</button>
+  `).join("");
+}
+
+function renderResolutions() {
+  const available = MODELS[selectedModel].resolutions;
+  if (!available.includes(selectedRes)) selectedRes = available[0];
+  document.getElementById("resChips").innerHTML = RESOLUTIONS.map(r => {
+    const ok = available.includes(r);
+    return `<button class="m-chip ${r === selectedRes ? 'selected' : ''} ${!ok ? 'disabled' : ''}" onclick="${ok ? `selectRes('${r}')` : ''}">${r}</button>`;
+  }).join("");
+}
+
+function renderThinkingLevels() {
+  const available = MODELS[selectedModel].thinkingLevels;
+  if (!available.includes(thinkingLevel)) thinkingLevel = "none";
+  document.getElementById("thinkingChips").innerHTML = THINKING_LEVELS.map(t => {
+    const ok = available.includes(t);
+    const label = t === "none" ? "Off" : t.charAt(0).toUpperCase() + t.slice(1);
+    return `<button class="m-chip ${t === thinkingLevel ? 'selected' : ''} ${!ok ? 'disabled' : ''}" onclick="${ok ? `selectThinking('${t}')` : ''}">${label}</button>`;
+  }).join("");
+}
+
+function renderTemplates() {
+  document.getElementById("templates").innerHTML = TEMPLATES.map((t, i) => `
+    <button class="m-template" onclick="useTemplate(${i})">
+      <span class="t-icon">${t.icon}</span><span>${t.label}</span>
+    </button>
+  `).join("");
+}
+
+function renderResults() {
+  const area = document.getElementById("resultsArea");
+  if (results.length === 0 && !isGenerating) {
+    area.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-emoji">🍌</div>
+        <h3>Ready to generate</h3>
+        <p>Type a prompt or pick a template, then tap the send button.</p>
+      </div>`;
+    return;
+  }
+  if (results.length === 0 && isGenerating) {
+    area.innerHTML = `
+      <div class="empty-state">
+        <div class="spin" style="width:32px;height:32px;border:3px solid #333;border-top-color:var(--banana);border-radius:50%;margin-bottom:16px;"></div>
+        <p style="color:#aaa;font-size:14px;">Generating with ${MODELS[selectedModel].name}…</p>
+        <p style="color:var(--text3);font-size:12px;margin-top:4px;">This may take 10–30 seconds</p>
+      </div>`;
+    return;
+  }
+  let html = `<p class="results-label">Generated Images (${results.length})</p>`;
+  results.forEach((r, i) => {
+    html += `<div class="m-result-card" style="animation-delay:${i * 0.04}s">`;
+    html += `<div class="m-result-meta"><span>${r.modelName} · ${r.time}</span>`;
+    if (r.images.length > 0) {
+      html += `<a href="${r.images[0]}" download="nano-banana-${r.ts}.png">Save</a>`;
+    }
+    html += `</div>`;
+    r.images.forEach(src => { html += `<img src="${src}" alt="Generated">`; });
+    if (r.text) html += `<p class="resp-text">${escapeHtml(r.text)}</p>`;
+    if (r.grounded) html += `<p class="grounding-meta">🔍 Grounded with Google Search</p>`;
+    html += `<p class="resp-prompt">"${escapeHtml(r.prompt)}"</p>`;
+    html += `</div>`;
+  });
+  area.innerHTML = html;
+}
+
+function renderActiveParams() {
+  const el = document.getElementById("activeParams");
+  if (!el) return;
+  const model = MODELS[selectedModel];
+  const pills = [];
+  pills.push(`<span class="m-pill">${model.badge}</span>`);
+  pills.push(`<span class="m-pill">${selectedRatio}</span>`);
+  pills.push(`<span class="m-pill">${selectedRes}</span>`);
+  if (numImages > 1) pills.push(`<span class="m-pill on">${numImages}x</span>`);
+  if (googleSearchEnabled) pills.push(`<span class="m-pill on" style="border-color:#22c55e44;color:#4ADE80;">🔍</span>`);
+  if (imageSearchEnabled && model.supportsImageSearch) pills.push(`<span class="m-pill on" style="border-color:#3b82f644;color:#60A5FA;">🖼️</span>`);
+  if (thinkingLevel !== "none") pills.push(`<span class="m-pill on">🧠 ${thinkingLevel}</span>`);
+  if (!personGeneration) pills.push(`<span class="m-pill on" style="border-color:#ef444444;color:#FF4D4D;">👤</span>`);
+  if (!includeTextOutput) pills.push(`<span class="m-pill on">IMG</span>`);
+  if (uploadedImageData) pills.push(`<span class="m-pill on" style="border-color:#a855f744;color:#C084FC;">🖌️ Edit</span>`);
+  el.innerHTML = pills.join("");
+}
+
+function updateImageSearchVisibility() {
+  const row = document.getElementById("imageSearchRow");
+  const model = MODELS[selectedModel];
+  if (model.supportsImageSearch) {
+    row.style.opacity = "1";
+    row.style.pointerEvents = "auto";
+  } else {
+    row.style.opacity = "0.3";
+    row.style.pointerEvents = "none";
+    if (imageSearchEnabled) {
+      imageSearchEnabled = false;
+      document.getElementById("imageSearchToggle").classList.remove("active");
+    }
+  }
+}
+
+/* ═══════════════════════ ACTIONS ═══════════════════════ */
+function launch() {
+  API_KEY = document.getElementById("apiKeyInput").value.trim();
+  if (!API_KEY) return;
+  document.getElementById("keyGate").style.display = "none";
+  document.getElementById("app").classList.add("active");
+  renderResults();
+}
+
+function resetKey() {
+  API_KEY = "";
+  document.getElementById("apiKeyInput").value = "";
+  document.getElementById("launchBtn").disabled = true;
+  document.getElementById("app").classList.remove("active");
+  document.getElementById("keyGate").style.display = "flex";
+}
+
+function selectModel(i) {
+  selectedModel = i;
+  const model = MODELS[i];
+  if (numImages > model.maxImages) {
+    numImages = model.maxImages;
+    document.getElementById("numImgVal").textContent = numImages;
+  }
+  renderModels(); renderResolutions(); renderThinkingLevels();
+  updateImageSearchVisibility(); updateStepperButtons(); renderActiveParams();
+}
+
+function selectRatio(r) { selectedRatio = r; renderRatios(); renderActiveParams(); }
+function selectRes(r) { selectedRes = r; renderResolutions(); renderActiveParams(); }
+function selectThinking(t) { thinkingLevel = t; renderThinkingLevels(); renderActiveParams(); }
+
+function changeNumImages(delta) {
+  numImages = Math.max(1, Math.min(MODELS[selectedModel].maxImages, numImages + delta));
+  document.getElementById("numImgVal").textContent = numImages;
+  updateStepperButtons(); renderActiveParams();
+}
+
+function updateStepperButtons() {
+  document.getElementById("numImgDown").disabled = numImages <= 1;
+  document.getElementById("numImgUp").disabled = numImages >= MODELS[selectedModel].maxImages;
+}
+
+function togglePerson() {
+  personGeneration = !personGeneration;
+  document.getElementById("personToggle").classList.toggle("active", personGeneration);
+  renderActiveParams();
+}
+
+function toggleTextOutput() {
+  includeTextOutput = !includeTextOutput;
+  document.getElementById("textOutputToggle").classList.toggle("active", includeTextOutput);
+  renderActiveParams();
+}
+
+function toggleSearch() {
+  googleSearchEnabled = !googleSearchEnabled;
+  document.getElementById("searchToggle").classList.toggle("active", googleSearchEnabled);
+  renderActiveParams();
+}
+
+function toggleImageSearch() {
+  if (!MODELS[selectedModel].supportsImageSearch) return;
+  imageSearchEnabled = !imageSearchEnabled;
+  document.getElementById("imageSearchToggle").classList.toggle("active", imageSearchEnabled);
+  renderActiveParams();
+}
+
+function useTemplate(i) {
+  const promptArea = document.getElementById("promptArea");
+  promptArea.value = TEMPLATES[i].prompt;
+  autoResize(promptArea);
+  document.getElementById("generateBtn").disabled = false;
+  if (TEMPLATES[i].grounding && !googleSearchEnabled) {
+    googleSearchEnabled = true;
+    document.getElementById("searchToggle").classList.add("active");
+    renderActiveParams();
+  }
+  promptArea.focus();
+}
+
+/* ═══════════════════════ IMAGE UPLOAD ═══════════════════════ */
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    uploadedImageMime = file.type;
+    uploadedImageData = e.target.result.split(",")[1];
+    uploadedImageName = file.name;
+    renderUploadArea();
+    document.getElementById("promptArea").placeholder = "Describe edits to make…";
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeUploadedImage() {
+  uploadedImageData = null;
+  uploadedImageMime = null;
+  uploadedImageName = null;
+  document.getElementById("imageUpload").value = "";
+  renderUploadArea();
+  document.getElementById("promptArea").placeholder = "Describe an image…";
+}
+
+function renderUploadArea() {
+  const area = document.getElementById("uploadArea");
+  if (uploadedImageData) {
+    area.classList.remove("empty");
+    area.innerHTML = `
+      <div class="m-upload-preview">
+        <img src="data:${uploadedImageMime};base64,${uploadedImageData}" alt="Uploaded">
+        <span class="upload-name">${escapeHtml(uploadedImageName)}</span>
+        <button class="m-upload-remove" onclick="removeUploadedImage()">×</button>
+      </div>
+    `;
+  } else {
+    area.classList.add("empty");
+    area.innerHTML = "";
+  }
+  renderActiveParams();
+}
+
+/* ═══════════════════════ BUILD REQUEST ═══════════════════════ */
+function buildRequestBody(prompt) {
+  const model = MODELS[selectedModel];
+  const modalities = includeTextOutput ? ["TEXT", "IMAGE"] : ["IMAGE"];
+  const parts = [{ text: prompt }];
+  if (uploadedImageData) {
+    parts.push({ inlineData: { mimeType: uploadedImageMime, data: uploadedImageData } });
+  }
+  const body = {
+    contents: [{ parts }],
+    generationConfig: {
+      responseModalities: modalities,
+      imageConfig: {
+        aspectRatio: selectedRatio,
+      },
+    },
+  };
+  if (selectedRes !== "1K") body.generationConfig.imageConfig.imageSize = selectedRes;
+  if (numImages > 1) body.generationConfig.imageConfig.numberOfImages = numImages;
+  const tools = [];
+  if (googleSearchEnabled && !imageSearchEnabled) {
+    tools.push({ googleSearch: {} });
+  } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+    tools.push({ google_search: { searchTypes: { webSearch: {}, imageSearch: {} } } });
+  } else if (imageSearchEnabled && model.supportsImageSearch) {
+    tools.push({ google_search: { searchTypes: { imageSearch: {} } } });
+  }
+  if (tools.length > 0) body.tools = tools;
+  if (thinkingLevel !== "none") {
+    body.generationConfig.thinkingConfig = { thinkingLevel: thinkingLevel };
+  }
+  return body;
+}
+
+/* ═══════════════════════ GENERATE ═══════════════════════ */
+async function generate() {
+  const prompt = document.getElementById("promptArea").value.trim();
+  if (!prompt || isGenerating) return;
+  isGenerating = true;
+  const btn = document.getElementById("generateBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin"></div>';
+  document.getElementById("errorBox").style.display = "none";
+
+  // Scroll to top to show spinner
+  document.getElementById("scrollContent").scrollTo({ top: 0, behavior: "smooth" });
+  renderResults();
+
+  try {
+    const model = MODELS[selectedModel];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model.id}:generateContent?key=${API_KEY}`;
+    const body = buildRequestBody(prompt);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `API error ${res.status}`);
+    }
+    const data = await res.json();
+    const candidate = data?.candidates?.[0];
+    if (!candidate) throw new Error("No response candidate from model");
+    let images = [];
+    let text = "";
+    for (const part of (candidate.content?.parts || [])) {
+      if (part.text) text += part.text;
+      if (part.inlineData) {
+        images.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+      }
+    }
+    if (images.length === 0 && !text) throw new Error("No image or text returned");
+    const now = new Date();
+    results.unshift({
+      images, text, prompt,
+      modelName: model.name,
+      ts: Date.now(),
+      time: now.toLocaleTimeString(),
+      grounded: googleSearchEnabled || imageSearchEnabled,
+    });
+  } catch (e) {
+    document.getElementById("errorBox").style.display = "block";
+    document.getElementById("errorBox").innerHTML = `<strong>Error:</strong> ${escapeHtml(e.message)}`;
+  } finally {
+    isGenerating = false;
+    btn.disabled = !document.getElementById("promptArea").value.trim();
+    btn.innerHTML = "▲";
+    renderResults();
+    document.getElementById("scrollContent").scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+/* ═══════════════════════ UTILS ═══════════════════════ */
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/* ═══════════════════════ GO ═══════════════════════ */
+init();
+</script>
+</body>
+</html>
