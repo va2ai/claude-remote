@@ -1,0 +1,15 @@
+{
+  "name": "amazon-flex-scraper",
+  "version": "1.0.0",
+  "description": "Scraper for Amazon Flex delivery block data",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "amazon-flex",
+    "scraper"
+  ],
+  "license": "MIT"
+}
