@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test:api": "node src/test-flex-api.js",
+    "test:api:dry": "node src/test-flex-api.js --dry-run"
   },
   "keywords": [
     "amazon-flex",
