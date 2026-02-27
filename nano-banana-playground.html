@@ -263,6 +263,27 @@
     background: var(--red-bg); border: 1px solid #5c1a1a; border-radius: 12px;
     padding: 13px 16px; margin-top: 14px; font-size: 13px; color: var(--red); line-height: 1.55;
   }
+  .upload-area {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    padding-bottom: 10px; border-bottom: 1px solid #1a1a1e;
+  }
+  .upload-btn {
+    background: transparent; border: 1px dashed var(--border2); border-radius: 9px;
+    padding: 8px 14px; font-size: 12px; color: var(--text3); cursor: pointer;
+    font-family: var(--font); transition: all .15s; display: flex; align-items: center; gap: 6px;
+  }
+  .upload-btn:hover { border-color: #555; color: var(--text2); }
+  .upload-preview {
+    display: flex; align-items: center; gap: 8px; background: var(--surface2);
+    border: 1px solid var(--border2); border-radius: 9px; padding: 4px 10px 4px 4px;
+  }
+  .upload-preview img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; }
+  .upload-preview .upload-name { font-size: 11px; color: var(--text2); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .upload-remove {
+    background: none; border: none; color: var(--text3); cursor: pointer;
+    font-size: 16px; padding: 0 4px; line-height: 1;
+  }
+  .upload-remove:hover { color: var(--red); }
   @media (max-width: 768px) {
     .layout { flex-direction: column; }
     .sidebar { width: 100%; min-width: 100%; max-height: none; border-right: none; border-bottom: 1px solid #1a1a1e; }
@@ -377,7 +398,12 @@
     </aside>
     <div class="main-area">
       <div class="prompt-box">
-        <textarea id="promptArea" placeholder="Describe the image you want to generate…" rows="2"></textarea>
+        <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+        <div id="uploadArea" class="upload-area">
+          <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">📎 Upload Image</button>
+          <span style="font-size:10px; color:var(--text3);">Upload an image to edit it with your prompt</span>
+        </div>
+        <textarea id="promptArea" placeholder="Describe the image you want to generate… or describe edits to an uploaded image" rows="2"></textarea>
         <div class="prompt-footer">
           <span class="hint">⌘+Enter to generate</span>
           <button class="btn-primary" id="generateBtn" disabled onclick="generate()">Generate Image</button>
@@ -406,6 +432,9 @@ let includeTextOutput = true;
 let googleSearchEnabled = false;
 let imageSearchEnabled = false;
 let thinkingLevel = "none";
+let uploadedImageData = null;
+let uploadedImageMime = null;
+let uploadedImageName = null;
 const MODELS = [
   { id: "gemini-3.1-flash-image-preview", name: "Nano Banana 2", badge: "3.1 Flash", accent: "#FFD600", desc: "High-efficiency, speed & volume optimized", resolutions: ["512px","1K","2K","4K"], maxImages: 4, supportsImageSearch: true, thinkingLevels: ["none","minimal","low","medium","high"] },
   { id: "gemini-3-pro-image-preview", name: "Nano Banana Pro", badge: "3 Pro", accent: "#FF8C00", desc: "Professional asset production, advanced reasoning", resolutions: ["1K","2K","4K"], maxImages: 4, supportsImageSearch: false, thinkingLevels: ["none","low","high"] },
@@ -560,6 +589,7 @@ function renderActiveParams() {
   if (thinkingLevel !== "none") pills.push(`<span class="param-pill on">🧠 ${thinkingLevel}</span>`);
   if (!personGeneration) pills.push(`<span class="param-pill on" style="border-color:#ef444444;color:#FF4D4D;">👤 blocked</span>`);
   if (!includeTextOutput) pills.push(`<span class="param-pill on">IMAGE only</span>`);
+  if (uploadedImageData) pills.push(`<span class="param-pill on" style="border-color:#a855f744;color:#C084FC;">🖌️ Edit mode</span>`);
   el.innerHTML = pills.join("");
 }
 function renderCode() {
@@ -689,25 +719,75 @@ function copyCode() {
   btn.textContent = "✓ Copied";
   setTimeout(() => { btn.textContent = "Copy"; }, 1500);
 }
+/* ═══════════════════════ IMAGE UPLOAD ═══════════════════════ */
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    uploadedImageMime = file.type;
+    uploadedImageData = dataUrl.split(",")[1];
+    uploadedImageName = file.name;
+    renderUploadArea();
+    document.getElementById("promptArea").placeholder = "Describe how to edit the uploaded image…";
+  };
+  reader.readAsDataURL(file);
+}
+function removeUploadedImage() {
+  uploadedImageData = null;
+  uploadedImageMime = null;
+  uploadedImageName = null;
+  document.getElementById("imageUpload").value = "";
+  renderUploadArea();
+  document.getElementById("promptArea").placeholder = "Describe the image you want to generate… or describe edits to an uploaded image";
+}
+function renderUploadArea() {
+  const area = document.getElementById("uploadArea");
+  if (uploadedImageData) {
+    area.innerHTML = `
+      <div class="upload-preview">
+        <img src="data:${uploadedImageMime};base64,${uploadedImageData}" alt="Uploaded">
+        <span class="upload-name">${escapeHtml(uploadedImageName)}</span>
+        <button class="upload-remove" onclick="removeUploadedImage()" title="Remove image">×</button>
+      </div>
+      <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">📎 Change</button>
+    `;
+  } else {
+    area.innerHTML = `
+      <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">📎 Upload Image</button>
+      <span style="font-size:10px; color:var(--text3);">Upload an image to edit it with your prompt</span>
+    `;
+  }
+  renderActiveParams();
+}
 /* ═══════════════════════ BUILD REQUEST ═══════════════════════ */
 function buildRequestBody(prompt) {
   const model = MODELS[selectedModel];
   const modalities = includeTextOutput ? ["TEXT", "IMAGE"] : ["IMAGE"];
+  const parts = [{ text: prompt }];
+  if (uploadedImageData) {
+    parts.push({ inlineData: { mimeType: uploadedImageMime, data: uploadedImageData } });
+  }
   const body = {
-    contents: [{ parts: [{ text: prompt }] }],
+    contents: [{ parts }],
     generationConfig: {
       responseModalities: modalities,
       imageConfig: {
         aspectRatio: selectedRatio,
-        personGeneration: personGeneration ? "ALLOW_ADULT" : "DONT_ALLOW",
       },
     },
   };
   if (selectedRes !== "1K") body.generationConfig.imageConfig.imageSize = selectedRes;
   if (numImages > 1) body.generationConfig.imageConfig.numberOfImages = numImages;
   const tools = [];
-  if (googleSearchEnabled) tools.push({ googleSearch: {} });
-  if (imageSearchEnabled && model.supportsImageSearch) tools.push({ googleSearchImageGrounding: {} });
+  if (googleSearchEnabled && !imageSearchEnabled) {
+    tools.push({ googleSearch: {} });
+  } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+    tools.push({ google_search: { searchTypes: { webSearch: {}, imageSearch: {} } } });
+  } else if (imageSearchEnabled && model.supportsImageSearch) {
+    tools.push({ google_search: { searchTypes: { imageSearch: {} } } });
+  }
   if (tools.length > 0) body.tools = tools;
   if (thinkingLevel !== "none") {
     body.generationConfig.thinkingConfig = { thinkingLevel: thinkingLevel };
@@ -783,15 +863,19 @@ response = client.models.generate_content(
     config=types.GenerateContentConfig(
         response_modalities=${pyMod},
         image_config=types.ImageConfig(
-            aspect_ratio="${selectedRatio}",
-            person_generation="${personGeneration ? 'ALLOW_ADULT' : 'DONT_ALLOW'}",`;
+            aspect_ratio="${selectedRatio}",`;
     if (selectedRes !== "1K") c += `\n            image_size="${selectedRes}",`;
     if (numImages > 1) c += `\n            number_of_images=${numImages},`;
     c += `\n        ),`;
     if (thinkingLevel !== "none") c += `\n        thinking_config=types.ThinkingConfig(thinking_level="${thinkingLevel}"),`;
     const t = [];
-    if (googleSearchEnabled) t.push('{"google_search": {}}');
-    if (imageSearchEnabled && model.supportsImageSearch) t.push('{"google_search_image_grounding": {}}');
+    if (googleSearchEnabled && !imageSearchEnabled) {
+      t.push('{"google_search": {}}');
+    } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+      t.push('{"google_search": {"search_types": {"web_search": {}, "image_search": {}}}}');
+    } else if (imageSearchEnabled && model.supportsImageSearch) {
+      t.push('{"google_search": {"search_types": {"image_search": {}}}}');
+    }
     if (t.length > 0) c += `\n        tools=[${t.join(', ')}],`;
     c += `\n    )
 )
@@ -806,17 +890,19 @@ for part in response.parts:
   if (lang === "javascript") {
     let cfg = `\n      responseModalities: ${jsMod},
       imageConfig: {
-        aspectRatio: "${selectedRatio}",
-        personGeneration: "${personGeneration ? 'ALLOW_ADULT' : 'DONT_ALLOW'}",`;
+        aspectRatio: "${selectedRatio}",`;
     if (selectedRes !== "1K") cfg += `\n        imageSize: "${selectedRes}",`;
     if (numImages > 1) cfg += `\n        numberOfImages: ${numImages},`;
     cfg += `\n      },`;
     if (thinkingLevel !== "none") cfg += `\n      thinkingConfig: { thinkingLevel: "${thinkingLevel}" },`;
     const t2 = [];
-    if (googleSearchEnabled) t2.push('{ googleSearch: {} }');
-    if (imageSearchEnabled && model.supportsImageSearch) t2.push('{ googleSearchImageGrounding: {} }');
-    let toolLine = "";
-    if (t2.length > 0) toolLine = `\n      tools: [${t2.join(', ')}],`;
+    if (googleSearchEnabled && !imageSearchEnabled) {
+      t2.push('{ googleSearch: {} }');
+    } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+      t2.push('{ google_search: { searchTypes: { webSearch: {}, imageSearch: {} } } }');
+    } else if (imageSearchEnabled && model.supportsImageSearch) {
+      t2.push('{ google_search: { searchTypes: { imageSearch: {} } } }');
+    }
     return `const API_KEY = "YOUR_API_KEY";
 const MODEL = "${modelId}";
 const response = await fetch(
@@ -843,15 +929,19 @@ for (const part of data.candidates[0].content.parts) {
   // curl
   let gc = `\n    "responseModalities": ${jsMod},
     "imageConfig": {
-      "aspectRatio": "${selectedRatio}",
-      "personGeneration": "${personGeneration ? 'ALLOW_ADULT' : 'DONT_ALLOW'}"`;
+      "aspectRatio": "${selectedRatio}"`;
   if (selectedRes !== "1K") gc += `,\n      "imageSize": "${selectedRes}"`;
   if (numImages > 1) gc += `,\n      "numberOfImages": ${numImages}`;
   gc += `\n    }`;
   if (thinkingLevel !== "none") gc += `,\n    "thinkingConfig": { "thinkingLevel": "${thinkingLevel}" }`;
   const ct = [];
-  if (googleSearchEnabled) ct.push('{"googleSearch": {}}');
-  if (imageSearchEnabled && model.supportsImageSearch) ct.push('{"googleSearchImageGrounding": {}}');
+  if (googleSearchEnabled && !imageSearchEnabled) {
+    ct.push('{"googleSearch": {}}');
+  } else if (googleSearchEnabled && imageSearchEnabled && model.supportsImageSearch) {
+    ct.push('{"google_search": {"searchTypes": {"webSearch": {}, "imageSearch": {}}}}');
+  } else if (imageSearchEnabled && model.supportsImageSearch) {
+    ct.push('{"google_search": {"searchTypes": {"imageSearch": {}}}}');
+  }
   let toolsJson = ct.length > 0 ? `,\n  "tools": [${ct.join(', ')}]` : "";
   return `curl -X POST \\
   "https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=API_KEY" \\
