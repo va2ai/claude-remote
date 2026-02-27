@@ -1,52 +1,42 @@
 # claude-remote
 
-A tool for running Claude AI sessions remotely, enabling seamless interaction with Claude from any environment.
+Amazon Flex tooling — scraper and mobile monitor app.
 
-## Overview
+## Projects
 
-`claude-remote` provides a lightweight interface for connecting to and managing Claude AI sessions from remote machines or CI/CD pipelines. It allows you to leverage Claude's capabilities without requiring a local setup beyond the client itself.
+### [amazon-flex-scraper](./amazon-flex-scraper/)
 
-## Features
+Node.js tool that polls for Amazon Flex delivery blocks via the internal API. Runs on a server or local machine with rate-limiting safeguards.
 
-- Remote execution of Claude AI sessions
-- Simple command-line interface
-- Configurable connection settings
-- Support for automated workflows and scripting
+- Polls `GetOffersForProviderPost` on a configurable interval
+- Exponential backoff on rate-limit responses
+- Logs found offers to `offers.log`
 
-## Installation
+### [flex-monitor](./flex-monitor/)
+
+Expo (React Native) mobile app for iOS/Android that monitors Flex offers and sends push notifications.
+
+- Secure token storage via device keychain
+- Foreground polling with start/stop controls
+- Background fetch (~15 min intervals on iOS)
+- Push notifications when offers are found
+- Region selection (NA, EU, Far East)
+- Service area configuration
+
+## Getting Started
 
 ```bash
-# Clone the repository
 git clone https://github.com/va2ai/claude-remote.git
 cd claude-remote
 
-# Install dependencies
-npm install
+# Run the scraper
+cd amazon-flex-scraper && npm install && npm start
+
+# Run the mobile app
+cd flex-monitor && npm install && npx expo start
 ```
 
-## Usage
-
-```bash
-# Start a remote Claude session
-claude-remote connect
-
-# Run a one-off command
-claude-remote run "Your prompt here"
-```
-
-## Configuration
-
-Set the following environment variables before running:
-
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key |
-| `CLAUDE_REMOTE_HOST` | Remote host address (if applicable) |
-| `CLAUDE_REMOTE_PORT` | Port for remote connection (default: `8080`) |
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.
+Both tools require Amazon Flex authentication tokens captured via mitmproxy from the Flex mobile app.
 
 ## License
 
