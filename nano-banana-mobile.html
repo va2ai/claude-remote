@@ -494,7 +494,12 @@
     flex: 1; display: flex; flex-direction: column;
     min-height: 0; overflow: hidden;
   }
-  .app-sidebar { flex-shrink: 0; }
+  .app-sidebar {
+    flex-shrink: 0;
+    max-height: 42vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .app-main {
     flex: 1; display: flex; flex-direction: column;
     min-height: 0; position: relative; overflow: hidden;
@@ -1204,6 +1209,14 @@ createApp({
       if (!model.thinkingLevels.includes(this.thinkingLevel)) this.thinkingLevel = "none";
       if (this.numImages > model.maxImages) this.numImages = model.maxImages;
       if (!model.supportsImageSearch) this.imageSearchEnabled = false;
+    },
+    results(newVal, oldVal) {
+      if (newVal.length > oldVal.length) {
+        this.$nextTick(() => {
+          const sc = this.$refs.scrollContent;
+          if (sc) sc.scrollTop = sc.scrollHeight;
+        });
+      }
     },
   },
 
