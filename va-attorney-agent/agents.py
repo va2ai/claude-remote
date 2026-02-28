@@ -89,6 +89,16 @@ async def run_specialist(
             messages=messages,
         )
 
+        # Log every response: iteration, stop_reason, block types, token usage
+        block_summary = ", ".join(b.type for b in response.content)
+        print(
+            f"  [{display_name}] iter={iteration}/{MAX_TOOL_ITERATIONS} "
+            f"stop={response.stop_reason} "
+            f"in={response.usage.input_tokens} out={response.usage.output_tokens} "
+            f"blocks=[{block_summary}]",
+            file=sys.stderr,
+        )
+
         # Check if the agent is done
         if response.stop_reason == "end_turn":
             text_parts = []
@@ -111,10 +121,15 @@ async def run_specialist(
         for block in response.content:
             if block.type == "tool_use":
                 print(
-                    f"  [{display_name}] Calling tool: {block.name}",
+                    f"  [{display_name}]   -> tool: {block.name} input={json.dumps(block.input)[:120]}",
                     file=sys.stderr,
                 )
                 result = await dispatch_tool(block.name, block.input, http_client)
+                result_preview = result[:120].replace("\n", " ")
+                print(
+                    f"  [{display_name}]   <- result: {result_preview}",
+                    file=sys.stderr,
+                )
                 tool_results.append(
                     {
                         "type": "tool_result",
@@ -125,6 +140,13 @@ async def run_specialist(
 
         if tool_results:
             messages.append({"role": "user", "content": tool_results})
+        else:
+            print(
+                f"  [{display_name}] WARNING: stop_reason={response.stop_reason} "
+                f"but no tool_use blocks found — breaking loop",
+                file=sys.stderr,
+            )
+            break
 
     # Safety valve
     print(
