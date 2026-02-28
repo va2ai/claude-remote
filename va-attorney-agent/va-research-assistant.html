@@ -1753,7 +1753,9 @@ const state = {
     { id: 'legal', name: 'Legal', color: '#C4553A', status: 'idle' },
     { id: 'synthesis', name: 'Synthesis', color: '#B8860B', status: 'idle' }
   ],
-  step: 0
+  step: 0,
+  researchPhase: 'idle',   // 'idle' | 'initial' | 'followup'
+  initialFindings: null,
 };
 
 const feed = document.getElementById('feed');
@@ -2363,9 +2365,26 @@ async function startResearch(goal) {
 const LEXIS_BACKEND = 'http://127.0.0.1:8020';
 
 async function runRealResearch(goal) {
+  state.researchPhase = 'idle';
   setAgentStatus('research', 'active');
   setAgentStatus('analysis', 'active');
-  addThinking('Searching 38 CFR, BVA decisions, and web sources in parallel\u2026');
+
+  // Cycle through status lines in the existing thinking indicator
+  const STATUS_STEPS = [
+    'Searching 38 CFR regulations\u2026',
+    'Searching BVA decisions\u2026',
+    'Analyzing case patterns\u2026',
+    'Synthesizing findings\u2026',
+  ];
+  let statusIdx = 0;
+  addThinking(STATUS_STEPS[0]);
+  const statusTimer = setInterval(() => {
+    statusIdx++;
+    if (statusIdx < STATUS_STEPS.length) {
+      const el = document.getElementById('thinkingEl');
+      if (el) el.querySelector('.thinking-text').textContent = STATUS_STEPS[statusIdx];
+    }
+  }, 2800);
 
   // Animate progress bar while Claude researches (~15-20s)
   let pct = 5;
@@ -2381,6 +2400,7 @@ async function runRealResearch(goal) {
       body: JSON.stringify({ query: goal, depth: 'standard' })
     });
     clearInterval(progressTimer);
+    clearInterval(statusTimer);
 
     if (!res.ok) {
       const errText = await res.text();
@@ -2392,10 +2412,15 @@ async function runRealResearch(goal) {
     updateProgress(100);
     setAgentStatus('research', 'idle');
     setAgentStatus('analysis', 'idle');
+
+    // Store findings and set phase before rendering so addLexisFollowUp can use them
+    state.initialFindings = data;
+    state.researchPhase = 'initial';
     renderResults(data);
 
   } catch (e) {
     clearInterval(progressTimer);
+    clearInterval(statusTimer);
     removeThinking();
     updateProgress(0);
     setAgentStatus('research', 'idle');
@@ -2548,10 +2573,149 @@ function renderResults(data) {
     setAgentStatus('synthesis', 'idle');
   }
 
-  addRefinementPrompt(
-    'Research complete! What would you like to explore next?',
-    ['Deep dive a case', 'Export brief', 'Counter-arguments', 'Evidence gaps']
-  );
+  addLexisFollowUp(data);
+}
+
+// ── LEXIS Follow-Up Bubble ──
+function addLexisFollowUp(data) {
+  const questions = data.follow_up_questions || [];
+
+  if (!questions.length) {
+    addAgentBlock('synthesis', 'now', `
+      <div class="content-card">
+        <div class="card-body">
+          <p style="font-weight:600;">Research complete.</p>
+          <p style="margin-top:6px;font-size:12.5px;line-height:1.5;">
+            Ask a follow-up question below or start new research.
+          </p>
+        </div>
+      </div>
+    `);
+    return;
+  }
+
+  const q = questions[0];
+  addAgentBlock('synthesis', 'now', `
+    <div class="content-card">
+      <div class="card-body">
+        <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:8px;">LEXIS Follow-Up</p>
+        <p style="line-height:1.65;">${q.text}</p>
+        ${questions[1] ? `
+          <p style="margin-top:10px;line-height:1.65;color:var(--mid-gray);">${questions[1].text}</p>
+        ` : ''}
+      </div>
+    </div>
+  `);
+}
+
+// ── Follow-Up Research ──
+async function runFollowupResearch(userResponse) {
+  setAgentStatus('synthesis', 'active');
+  addThinking('Refining analysis with your answer\u2026');
+
+  let pct = 10;
+  const progressTimer = setInterval(() => {
+    pct = Math.min(88, pct + (90 - pct) * 0.05);
+    updateProgress(Math.round(pct));
+  }, 600);
+
+  try {
+    const res = await fetch(`${LEXIS_BACKEND}/api/mobile/research/followup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: state.goal,
+        initial_findings: state.initialFindings,
+        user_response: userResponse,
+      })
+    });
+    clearInterval(progressTimer);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Backend ${res.status}: ${errText.substring(0, 120)}`);
+    }
+
+    const data = await res.json();
+    removeThinking();
+    updateProgress(100);
+    setAgentStatus('synthesis', 'idle');
+    state.initialFindings = data;
+    renderRefinedResults(data);
+
+  } catch (e) {
+    clearInterval(progressTimer);
+    removeThinking();
+    setAgentStatus('synthesis', 'idle');
+    addAgentBlock('synthesis', 'now', `
+      <div class="content-card"><div class="card-body">
+        <p style="color:var(--accent);font-weight:600;">Refinement failed</p>
+        <p style="margin-top:6px;font-size:12.5px;">${e.message}</p>
+      </div></div>
+    `);
+  }
+}
+
+// ── Render Refined Results (Phase 2) ──
+function renderRefinedResults(data) {
+  const CONF_COLOR = { high: 'green-verdict', medium: 'amber', low: 'accent' };
+  const PRIORITY_BG = { critical: ['accent', 'accent-glow'], high: ['amber', 'amber-light'], medium: ['blue-ink', 'blue-light'], low: ['green-verdict', 'green-light'] };
+  const clr = CONF_COLOR[data.confidence] || 'amber';
+
+  // Updated verdict card
+  addAgentBlock('synthesis', 'now', `
+    <div class="content-card">
+      <div class="verdict-card">
+        <div class="verdict-label">UPDATED \u2014 ${(data.confidence || 'medium').toUpperCase()} CONFIDENCE</div>
+        <div class="verdict-title">${data.headline}</div>
+        ${data.win_probability != null ? `
+        <div class="verdict-stats">
+          <div class="verdict-stat">
+            <span class="num" style="color:var(--${clr});">${data.win_probability}%</span>
+            <span class="label">Win Probability</span>
+          </div>
+        </div>` : ''}
+      </div>
+    </div>
+  `);
+
+  // Updated memo
+  if (data.memo) {
+    const memoHtml = data.memo
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>')
+      .substring(0, 700);
+    addAgentBlock('synthesis', 'now', `
+      <div class="content-card">
+        <div class="card-body">
+          <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:8px;">Refined Analysis</p>
+          <p style="line-height:1.65;">${memoHtml}${data.memo.length > 700 ? '\u2026' : ''}</p>
+        </div>
+      </div>
+    `);
+  }
+
+  // Updated action items
+  if (data.action_items?.length) {
+    const actionsHtml = data.action_items.map(item => {
+      const [c, bg] = PRIORITY_BG[item.priority] || PRIORITY_BG.medium;
+      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px;background:var(--paper);border-radius:8px;margin-bottom:6px;">
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--${c});padding:3px 7px;background:var(--${bg});border-radius:20px;white-space:nowrap;margin-top:2px;">${item.priority}</span>
+        <span style="font-size:12.5px;line-height:1.5;color:#3A3630;">${item.text}</span>
+      </div>`;
+    }).join('');
+    addAgentBlock('synthesis', 'now', `
+      <div class="content-card">
+        <div class="card-body">
+          <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:10px;">Updated Action Items</p>
+          ${actionsHtml}
+        </div>
+      </div>
+    `);
+  }
+
+  state.researchPhase = 'followup';
+  addLexisFollowUp(data);
 }
 
 // ── Handle Send ──
@@ -2597,6 +2761,10 @@ function handleSend() {
 
   if (state.screen === 'welcome') {
     startResearch(text);
+  } else if (state.researchPhase === 'initial') {
+    addUserMessage(text);
+    state.researchPhase = 'followup';
+    setTimeout(() => runFollowupResearch(text), 600);
   } else {
     addUserMessage(text);
     setTimeout(() => handleRefinement(text), 800);
