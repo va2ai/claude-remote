@@ -499,6 +499,12 @@
     max-height: 42vh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+  }
+  .app-sidebar.collapsed {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
   }
   .app-main {
     flex: 1; display: flex; flex-direction: column;
@@ -514,13 +520,16 @@
     /* ── Left sidebar ── */
     .app-sidebar {
       width: 300px; flex-shrink: 0;
-      display: flex; flex-direction: column;
+      display: flex !important; flex-direction: column;
       overflow-y: auto; overflow-x: hidden;
       border-right: 1px solid var(--border);
       background: var(--surface);
       scrollbar-width: none;
+      max-height: none; opacity: 1;
+      transition: none;
     }
     .app-sidebar::-webkit-scrollbar { display: none; }
+    .btn-controls-toggle { display: none; }
 
     /* Model cards: vertical stack */
     .model-strip {
@@ -663,14 +672,17 @@
         <span class="logo">🍌</span>
         <h1>Nano Banana <span>Playground</span></h1>
       </div>
-      <button class="header-btn" @click="resetKey()">Key</button>
+      <div style="display:flex;gap:8px;">
+        <button class="header-btn btn-controls-toggle" @click="sidebarCollapsed = !sidebarCollapsed">{{ sidebarCollapsed ? 'Controls ▼' : 'Controls ▲' }}</button>
+        <button class="header-btn" @click="resetKey()">Key</button>
+      </div>
     </header>
 
     <!-- App body: sidebar (controls) + main (results) -->
     <div class="app-body">
 
       <!-- Left sidebar: model selector, config, quick prompts -->
-      <aside class="app-sidebar">
+      <aside class="app-sidebar" :class="{ collapsed: sidebarCollapsed }">
 
         <!-- Mode Tabs -->
         <div class="mode-tabs">
@@ -1085,6 +1097,7 @@ createApp({
       activeTemplateIndex: null,
       tplVarValues: {},
       // UI state
+      sidebarCollapsed: false,
       sheetOpen: false,
       tplSheetOpen: false,
       errorMessage: "",
@@ -1448,6 +1461,7 @@ createApp({
       if (!prompt || this.isGenerating) return;
       this.isGenerating = true;
       this.isPolling = false;
+      this.sidebarCollapsed = true;
       this.errorMessage = "";
 
       this.$nextTick(() => {
@@ -1536,6 +1550,7 @@ createApp({
       const prompt = this.promptText.trim();
       if (!prompt || this.isGenerating) return;
       this.isGenerating = true;
+      this.sidebarCollapsed = true;
       this.errorMessage = "";
 
       this.$nextTick(() => {
