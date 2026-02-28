@@ -1,0 +1,11 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+tests/
+.git/
+.gitignore
+va-research-assistant.html
+*.md
+.pytest_cache/
