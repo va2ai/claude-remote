@@ -117,7 +117,8 @@
   #app { display: none; }
   #app.active {
     display: flex; flex-direction: column;
-    min-height: 100vh; min-height: 100dvh;
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
   }
 
   /* ─── HEADER ─── */
@@ -487,6 +488,112 @@
   }
   .tpl-modal-footer .btn-cancel:active { background: #ffffff06; }
   .tpl-modal-footer .btn-primary { flex: 2; }
+
+  /* ─── APP BODY / SIDEBAR / MAIN WRAPPERS ─── */
+  .app-body {
+    flex: 1; display: flex; flex-direction: column;
+    min-height: 0; overflow: hidden;
+  }
+  .app-sidebar { flex-shrink: 0; }
+  .app-main {
+    flex: 1; display: flex; flex-direction: column;
+    min-height: 0; position: relative; overflow: hidden;
+  }
+
+  /* ─── RESPONSIVE: DESKTOP (≥ 768px) ─── */
+  @media (min-width: 768px) {
+
+    /* Side-by-side: sidebar left, main right */
+    .app-body { flex-direction: row; }
+
+    /* ── Left sidebar ── */
+    .app-sidebar {
+      width: 300px; flex-shrink: 0;
+      display: flex; flex-direction: column;
+      overflow-y: auto; overflow-x: hidden;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      scrollbar-width: none;
+    }
+    .app-sidebar::-webkit-scrollbar { display: none; }
+
+    /* Model cards: vertical stack */
+    .model-strip {
+      flex-direction: column; overflow-x: visible;
+      scroll-snap-type: none; padding: 16px 16px 8px; gap: 8px;
+    }
+    .m-model-card { width: 100%; scroll-snap-align: none; }
+
+    /* Chips: wrap on desktop */
+    .chip-scroll { flex-wrap: wrap; overflow-x: visible; }
+
+    /* Config sections */
+    .config-section { margin-bottom: 12px; }
+
+    /* Template strip: vertical */
+    .template-strip {
+      flex-direction: column; overflow-x: visible;
+      padding: 4px 16px 20px; gap: 6px;
+    }
+    .m-template { white-space: normal; flex: 0 0 auto; width: 100%; }
+
+    /* ── Right main panel ── */
+    .app-main { overflow: hidden; }
+
+    /* Results: more padding */
+    .results-area { padding: 20px 28px; }
+
+    /* Scroll content: no extra padding for fixed bar */
+    .scroll-content { padding-bottom: 20px; }
+
+    /* Images: constrain height on large screens */
+    .m-result-card img {
+      max-height: 72vh; width: auto; max-width: 100%;
+      margin-left: auto; margin-right: auto;
+    }
+
+    /* Prompt bar: in-flow at bottom of right column */
+    .prompt-bar {
+      position: relative; bottom: auto; left: auto; right: auto;
+      z-index: auto; flex-shrink: 0;
+      padding: 12px 20px 16px;
+    }
+
+    /* Header: desktop padding (no safe-area needed) */
+    .app-header { padding: 10px 24px; }
+
+    /* Empty state: fill available height */
+    .empty-state { min-height: 400px; }
+
+    /* Settings sheet: centered modal */
+    .sheet {
+      left: 50%; right: auto;
+      width: min(480px, calc(100vw - 40px));
+      border-radius: 20px; bottom: 24px;
+      max-height: calc(80vh - 24px);
+      transform: translateX(-50%) translateY(100%);
+    }
+    .sheet.open { transform: translateX(-50%) translateY(0); }
+
+    /* Template modal: centered */
+    .tpl-modal-sheet {
+      left: 50%; right: auto;
+      width: min(560px, calc(100vw - 40px));
+      border-radius: 20px; bottom: 24px;
+      max-height: calc(85vh - 24px);
+      transform: translateX(-50%) translateY(100%);
+    }
+    .tpl-modal-sheet.open { transform: translateX(-50%) translateY(0); }
+
+    /* Key card: limit width */
+    .key-card { max-width: 460px; }
+  }
+
+  /* ─── EXTRA LARGE DESKTOP (≥ 1200px) ─── */
+  @media (min-width: 1200px) {
+    .app-sidebar { width: 340px; }
+    .results-area { padding: 24px 36px; }
+  }
 </style>
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
@@ -521,76 +628,87 @@
       <button class="header-btn" @click="resetKey()">Key</button>
     </header>
 
-    <!-- Scrollable content -->
-    <div class="scroll-content" ref="scrollContent">
+    <!-- App body: sidebar (controls) + main (results) -->
+    <div class="app-body">
 
-      <!-- Model selector (horizontal) -->
-      <div class="model-strip">
-        <button
-          v-for="(m, i) in MODELS"
-          :key="m.id"
-          class="m-model-card"
-          :class="{ selected: i === selectedModel }"
-          :style="i === selectedModel ? { borderColor: m.accent, background: m.accent + '12' } : {}"
-          @click="selectModel(i)"
-        >
-          <div class="m-top">
-            <span class="m-name">{{ m.name }}</span>
-            <span class="m-badge" :style="{ background: m.accent }">{{ m.badge }}</span>
+      <!-- Left sidebar: model selector, config, quick prompts -->
+      <aside class="app-sidebar">
+
+        <!-- Model selector -->
+        <div class="model-strip">
+          <button
+            v-for="(m, i) in MODELS"
+            :key="m.id"
+            class="m-model-card"
+            :class="{ selected: i === selectedModel }"
+            :style="i === selectedModel ? { borderColor: m.accent, background: m.accent + '12' } : {}"
+            @click="selectModel(i)"
+          >
+            <div class="m-top">
+              <span class="m-name">{{ m.name }}</span>
+              <span class="m-badge" :style="{ background: m.accent }">{{ m.badge }}</span>
+            </div>
+            <div class="m-desc">{{ m.desc }}</div>
+          </button>
+        </div>
+
+        <!-- Ratio + Resolution chips -->
+        <div class="config-section">
+          <div class="config-label">Aspect Ratio</div>
+          <div class="chip-scroll">
+            <button
+              v-for="r in RATIOS"
+              :key="r"
+              class="m-chip"
+              :class="{ selected: r === selectedRatio }"
+              @click="selectRatio(r)"
+            >{{ r }}</button>
           </div>
-          <div class="m-desc">{{ m.desc }}</div>
-        </button>
-      </div>
-
-      <!-- Ratio + Resolution chips -->
-      <div class="config-section">
-        <div class="config-label">Aspect Ratio</div>
-        <div class="chip-scroll">
-          <button
-            v-for="r in RATIOS"
-            :key="r"
-            class="m-chip"
-            :class="{ selected: r === selectedRatio }"
-            @click="selectRatio(r)"
-          >{{ r }}</button>
         </div>
-      </div>
-      <div class="config-section">
-        <div class="config-label">Resolution</div>
-        <div class="chip-scroll">
-          <button
-            v-for="item in availableResolutions"
-            :key="item.value"
-            class="m-chip"
-            :class="{ selected: item.selected, disabled: !item.available }"
-            :disabled="!item.available"
-            @click="item.available && selectRes(item.value)"
-          >{{ item.value }}</button>
+        <div class="config-section">
+          <div class="config-label">Resolution</div>
+          <div class="chip-scroll">
+            <button
+              v-for="item in availableResolutions"
+              :key="item.value"
+              class="m-chip"
+              :class="{ selected: item.selected, disabled: !item.available }"
+              :disabled="!item.available"
+              @click="item.available && selectRes(item.value)"
+            >{{ item.value }}</button>
+          </div>
         </div>
-      </div>
 
-      <!-- Quick Prompts (horizontal) -->
-      <div class="config-section">
-        <div class="config-label">Quick Prompts</div>
-      </div>
-      <div class="template-strip">
-        <button
-          v-for="(t, i) in templateList"
-          :key="i"
-          class="m-template"
-          @click="useTemplate(i)"
-        >
-          <span class="t-icon">{{ t.icon }}</span>
-          <span>{{ t.label }}</span>
-          <span v-if="t.hasVars" style="font-size:10px;color:var(--text3);font-family:var(--mono);">{..}</span>
-        </button>
-      </div>
+        <!-- Quick Prompts -->
+        <div class="config-section">
+          <div class="config-label">Quick Prompts</div>
+        </div>
+        <div class="template-strip">
+          <button
+            v-for="(t, i) in templateList"
+            :key="i"
+            class="m-template"
+            @click="useTemplate(i)"
+          >
+            <span class="t-icon">{{ t.icon }}</span>
+            <span>{{ t.label }}</span>
+            <span v-if="t.hasVars" style="font-size:10px;color:var(--text3);font-family:var(--mono);">{..}</span>
+          </button>
+        </div>
 
-      <!-- Error -->
-      <div v-if="errorMessage" class="error-box"><strong>Error:</strong> {{ errorMessage }}</div>
+      </aside>
 
-      <!-- Results -->
-      <div class="results-area">
+      <!-- Right panel: scrollable results + prompt bar -->
+      <div class="app-main">
+
+        <!-- Scrollable results -->
+        <div class="scroll-content" ref="scrollContent">
+
+          <!-- Error -->
+          <div v-if="errorMessage" class="error-box"><strong>Error:</strong> {{ errorMessage }}</div>
+
+          <!-- Results -->
+          <div class="results-area">
         <!-- Empty state -->
         <div v-if="results.length === 0 && !isGenerating" class="empty-state">
           <div class="empty-emoji">🍌</div>
@@ -622,8 +740,53 @@
             <p class="resp-prompt">"{{ r.prompt }}"</p>
           </div>
         </template>
-      </div>
-    </div>
+          </div>
+        </div>
+
+        <!-- Prompt Bar (in-flow on desktop, fixed on mobile) -->
+        <div class="prompt-bar">
+          <input type="file" ref="imageUpload" accept="image/*" style="display:none" @change="handleImageUpload($event)">
+          <div class="m-upload-area" :class="{ empty: !uploadedImageData }">
+            <div v-if="uploadedImageData" class="m-upload-preview">
+              <img :src="uploadPreviewSrc" alt="Uploaded">
+              <span class="upload-name">{{ uploadedImageName }}</span>
+              <button class="m-upload-remove" @click="removeUploadedImage()">×</button>
+            </div>
+          </div>
+          <div class="prompt-row">
+            <div class="prompt-actions">
+              <button class="prompt-icon-btn" @click="$refs.imageUpload.click()" title="Upload image">📎</button>
+              <button class="prompt-icon-btn" @click="openSheet()" title="Settings">⚙️</button>
+            </div>
+            <div class="prompt-input-wrap">
+              <textarea
+                ref="promptArea"
+                :placeholder="promptPlaceholder"
+                rows="1"
+                v-model="promptText"
+                @input="autoResize($refs.promptArea)"
+                @keydown.meta.enter.prevent="generate()"
+                @keydown.ctrl.enter.prevent="generate()"
+              ></textarea>
+            </div>
+            <button class="send-btn" :disabled="sendBtnDisabled" @click="generate()">
+              <div v-if="isGenerating" class="spin"></div>
+              <template v-else>▲</template>
+            </button>
+          </div>
+          <div class="config-pills">
+            <span
+              v-for="(pill, i) in activePills"
+              :key="i"
+              class="m-pill"
+              :class="{ on: pill.on }"
+              :style="pill.style || ''"
+            >{{ pill.label }}</span>
+          </div>
+        </div>
+
+      </div><!-- /app-main -->
+    </div><!-- /app-body -->
 
     <!-- Settings Sheet Backdrop -->
     <div class="sheet-backdrop" :class="{ visible: sheetOpen }" @click="closeSheet()"></div>
@@ -728,48 +891,7 @@
       </div>
     </div>
 
-    <!-- Bottom Prompt Bar -->
-    <div class="prompt-bar">
-      <input type="file" ref="imageUpload" accept="image/*" style="display:none" @change="handleImageUpload($event)">
-      <div class="m-upload-area" :class="{ empty: !uploadedImageData }">
-        <div v-if="uploadedImageData" class="m-upload-preview">
-          <img :src="uploadPreviewSrc" alt="Uploaded">
-          <span class="upload-name">{{ uploadedImageName }}</span>
-          <button class="m-upload-remove" @click="removeUploadedImage()">×</button>
-        </div>
-      </div>
-      <div class="prompt-row">
-        <div class="prompt-actions">
-          <button class="prompt-icon-btn" @click="$refs.imageUpload.click()" title="Upload image">📎</button>
-          <button class="prompt-icon-btn" @click="openSheet()" title="Settings">⚙️</button>
-        </div>
-        <div class="prompt-input-wrap">
-          <textarea
-            ref="promptArea"
-            :placeholder="promptPlaceholder"
-            rows="1"
-            v-model="promptText"
-            @input="autoResize($refs.promptArea)"
-            @keydown.meta.enter.prevent="generate()"
-            @keydown.ctrl.enter.prevent="generate()"
-          ></textarea>
-        </div>
-        <button class="send-btn" :disabled="sendBtnDisabled" @click="generate()">
-          <div v-if="isGenerating" class="spin"></div>
-          <template v-else>▲</template>
-        </button>
-      </div>
-      <div class="config-pills">
-        <span
-          v-for="(pill, i) in activePills"
-          :key="i"
-          class="m-pill"
-          :class="{ on: pill.on }"
-          :style="pill.style || ''"
-        >{{ pill.label }}</span>
-      </div>
-    </div>
-  </div>
+  </div><!-- /#app -->
 
 </div>
 
