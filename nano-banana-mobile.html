@@ -456,6 +456,10 @@
     color: var(--banana); font-weight: 600;
     background: var(--banana-dim); padding: 1px 4px; border-radius: 4px;
   }
+  .tpl-var-filled {
+    color: var(--green); font-weight: 600;
+    background: var(--green-dim); padding: 1px 4px; border-radius: 4px;
+  }
   .tpl-modal-fields {
     display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px;
   }
@@ -940,6 +944,20 @@ function formatVarName(v) {
 function buildTemplatePreview(promptStr) {
   return escapeHtml(promptStr).replace(/\{(\w+)\}/g, '<span class="tpl-var-highlight">{$1}</span>');
 }
+function updateTemplatePreview() {
+  if (activeTemplateIndex === null) return;
+  const tpl = TEMPLATES[activeTemplateIndex];
+  const values = {};
+  document.querySelectorAll("#tplModalFields .tpl-field-input").forEach(inp => {
+    values[inp.dataset.var] = inp.value.trim();
+  });
+  document.getElementById("tplModalPreview").innerHTML = escapeHtml(tpl.prompt).replace(/\{(\w+)\}/g, (m, v) => {
+    const val = values[v] || (tpl.defaults && tpl.defaults[v]) || null;
+    return val
+      ? `<span class="tpl-var-filled">${escapeHtml(val)}</span>`
+      : `<span class="tpl-var-highlight">{${v}}</span>`;
+  });
+}
 function applyPromptText(prompt, tpl) {
   const promptArea = document.getElementById("promptArea");
   promptArea.value = prompt;
@@ -967,7 +985,6 @@ function showTemplateModal(index) {
   activeTemplateIndex = index;
   document.getElementById("tplModalIcon").textContent = tpl.icon;
   document.getElementById("tplModalTitle").textContent = tpl.label;
-  document.getElementById("tplModalPreview").innerHTML = buildTemplatePreview(tpl.prompt);
   const fc = document.getElementById("tplModalFields");
   fc.innerHTML = vars.map(v => {
     const def = (tpl.defaults && tpl.defaults[v]) || "";
@@ -976,6 +993,10 @@ function showTemplateModal(index) {
       <input class="tpl-field-input" type="text" data-var="${v}" value="${escapeHtml(def)}" placeholder="Enter ${formatVarName(v).toLowerCase()}…">
     </div>`;
   }).join("");
+  fc.querySelectorAll(".tpl-field-input").forEach(inp => {
+    inp.addEventListener("input", updateTemplatePreview);
+  });
+  updateTemplatePreview();
   document.getElementById("tplBackdrop").classList.add("visible");
   document.getElementById("tplSheet").classList.add("open");
   document.body.style.overflow = "hidden";
