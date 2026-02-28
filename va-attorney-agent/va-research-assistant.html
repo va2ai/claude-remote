@@ -2363,7 +2363,7 @@ async function startResearch(goal) {
 }
 
 // ── Real Research via Backend API ──
-const LEXIS_BACKEND = 'http://127.0.0.1:8020';
+const LEXIS_BACKEND = 'https://vet-research-524576132881.us-central1.run.app';
 
 async function runRealResearch(goal) {
   state.researchPhase = 'idle';
@@ -3716,36 +3716,33 @@ const researchSteps = [
     );
   },
 
-  // Step 3: AI-Powered Legal Strategy (Claude API + BVA data)
+  // Step 3: AI-Powered Legal Strategy (server-side via LEXIS_BACKEND)
   async () => {
     setAgentStatus('legal', 'active');
     const t = addThinking('AI legal strategist analyzing gathered data…');
 
     // Gather context from prior steps
     const searchResults = state.searchResults || [];
-    const topCases = searchResults.slice(0, 3).map(r => `- ${r.title || r.case_number}: ${(r.snippet || '').replace(/<[^>]+>/g, '').substring(0, 150)}`).join('\n');
+    const casesPayload = searchResults.slice(0, 3).map(r => ({
+      title: r.title || r.case_number || '',
+      snippet: (r.snippet || '').replace(/<[^>]+>/g, '').substring(0, 150)
+    }));
+    const conditionTerms = (state.goal || '').match(/\b(ptsd|knee|hip|back|spine|tinnitus|sleep apnea|migraine|ankle|shoulder|depression|anxiety|gerd|radiculopathy|sciatica|hearing loss|tbi)\b/gi) || [];
 
-    // Call Claude API for legal strategy generation
-    const strategyResponse = await safeApiCall(async () => {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+    // Call backend — runs strategy + ratings + synthesis in parallel server-side
+    const lexisAnalysis = await safeApiCall(async () => {
+      const res = await fetch(`${LEXIS_BACKEND}/api/lexis/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: `You are a VA disability claims legal strategist. Given the veteran's research goal and BVA case data, generate a 4-step legal strategy. Respond ONLY in valid JSON with this exact format:
-{"steps":[{"title":"Step title","detail":"1-2 sentence explanation"},{"title":"...","detail":"..."},{"title":"...","detail":"..."},{"title":"...","detail":"..."}],"confidence":85,"summary":"1-2 sentence overview"}`,
-          messages: [{
-            role: 'user',
-            content: `Research goal: ${state.goal}\n\nTop BVA cases found:\n${topCases || 'No cases loaded yet.'}\n\nGenerate a 4-step legal strategy for this veteran's claim.`
-          }],
-          mcp_servers: [{ type: 'url', url: 'https://bva-mcp-524576132881.us-central1.run.app/mcp', name: 'bva' }]
-        })
+        body: JSON.stringify({ goal: state.goal, cases: casesPayload, conditions: conditionTerms })
       });
-      const data = await res.json();
-      const text = data.content?.map(b => b.text || '').join('') || '';
-      return JSON.parse(text.replace(/```json|```/g, '').trim());
+      if (!res.ok) throw new Error(`lexis/analyze ${res.status}`);
+      return res.json();
     });
+
+    // Cache for steps 4 & 5
+    state.lexisAnalysis = lexisAnalysis || {};
+    const strategyResponse = state.lexisAnalysis.strategy || null;
 
     removeThinking();
     updateProgress(72);
@@ -3790,29 +3787,14 @@ const researchSteps = [
 
     // Extract condition terms from the goal for DC lookup
     const conditionTerms = state.goal.match(/\b(ptsd|knee|hip|back|spine|tinnitus|sleep apnea|migraine|ankle|shoulder|depression|anxiety|gerd|radiculopathy|sciatica|hearing loss|tbi)\b/gi) || [];
-    
-    // Parallel: DC search for conditions + Claude rating analysis
-    const [dcResults, ratingAnalysis] = await Promise.all([
+
+    // DC search runs in parallel; rating analysis comes from cached lexisAnalysis (fetched in step 3)
+    const [dcResults] = await Promise.all([
       conditionTerms.length > 0
         ? safeApiCall(() => Promise.all(conditionTerms.slice(0, 3).map(term => bvaApi.dcSearch(term))))
         : Promise.resolve(null),
-      safeApiCall(async () => {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 1000,
-            system: `You are a VA rating criteria analyst. Given the research goal, identify the 3 most likely rating levels and their criteria. Respond ONLY in valid JSON:
-{"ratings":[{"pct":"70%","label":"Rating description","barWidth":78,"color":"accent"},{"pct":"50%","label":"...","barWidth":62,"color":"amber"},{"pct":"30%","label":"...","barWidth":34,"color":"green-verdict"}],"confidence":87}`,
-            messages: [{ role: 'user', content: `Research goal: ${state.goal}\nConditions identified: ${conditionTerms.join(', ') || 'general'}\nAnalyze the most likely rating outcomes.` }]
-          })
-        });
-        const data = await res.json();
-        const text = data.content?.map(b => b.text || '').join('') || '';
-        return JSON.parse(text.replace(/```json|```/g, '').trim());
-      })
     ]);
+    const ratingAnalysis = (state.lexisAnalysis || {}).ratings || null;
 
     removeThinking();
     updateProgress(85);
@@ -3869,23 +3851,8 @@ const researchSteps = [
     const searchResults = state.searchResults || [];
     const totalCases = searchResults.length ? `${searchResults.length} top results analyzed` : 'cases analyzed';
 
-    // Call Claude for final synthesis
-    const synthesis = await safeApiCall(async () => {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: `You are a VA claims research synthesizer. Given the research goal and gathered data, write a concise 2-3 paragraph research brief summary. Respond ONLY in JSON:
-{"summary":"2-3 paragraph summary text with <strong> tags for emphasis","tags":["tag1","tag2","tag3","tag4"],"strength":"strong|moderate|weak"}`,
-          messages: [{ role: 'user', content: `Research goal: ${state.goal}\nBVA cases found: ${searchResults.length} results\nTop case titles: ${searchResults.slice(0, 3).map(r => r.title).join('; ')}\n\nSynthesize the research findings.` }]
-        })
-      });
-      const data = await res.json();
-      const text = data.content?.map(b => b.text || '').join('') || '';
-      return JSON.parse(text.replace(/```json|```/g, '').trim());
-    });
+    // Use cached synthesis from lexisAnalysis (fetched in step 3)
+    const synthesis = (state.lexisAnalysis || {}).synthesis || null;
 
     removeThinking();
     updateProgress(100);
