@@ -6,7 +6,7 @@ import sys
 import httpx
 from anthropic import AsyncAnthropic
 
-from config import SPECIALIST_MODEL, SPECIALIST_MAX_TOKENS, SPECIALIST_THINKING, MAX_TOOL_ITERATIONS
+from config import SPECIALIST_MODEL, SPECIALIST_MAX_TOKENS, SPECIALIST_THINKING, MAX_TOOL_ITERATIONS, ROUTING_PROFILES
 from tools.definitions import AGENT_TOOLS
 from tools.handlers import dispatch_tool
 from prompts.regulatory_analyst import SYSTEM_PROMPT as REGULATORY_PROMPT
@@ -14,6 +14,9 @@ from prompts.case_law_researcher import SYSTEM_PROMPT as CASE_LAW_PROMPT
 from prompts.cp_exam_critic import SYSTEM_PROMPT as CP_EXAM_PROMPT
 from prompts.evidence_strategist import SYSTEM_PROMPT as EVIDENCE_PROMPT
 from prompts.procedural_tactician import SYSTEM_PROMPT as PROCEDURAL_PROMPT
+from prompts.cue_claim import REGULATORY_PROMPT as CUE_REGULATORY_PROMPT, CASE_LAW_PROMPT as CUE_CASE_LAW_PROMPT
+from prompts.eligibility_check import REGULATORY_PROMPT as ELIGIBILITY_REGULATORY_PROMPT, PROCEDURAL_PROMPT as ELIGIBILITY_PROCEDURAL_PROMPT
+from prompts.appeal_strategy import CASE_LAW_PROMPT as APPEAL_CASE_LAW_PROMPT, PROCEDURAL_PROMPT as APPEAL_PROCEDURAL_PROMPT
 
 
 # ── Agent Definitions ─────────────────────────────────────────────
@@ -47,6 +50,28 @@ SPECIALISTS = [
 ]
 
 
+# ── Per-Query-Type Prompt Overrides ───────────────────────────────
+# Maps query_type -> {agent_name -> system_prompt}.
+# When run_selected_specialists() is called with a query_type that has
+# an entry here, each named specialist uses the override prompt instead
+# of its default SPECIALISTS entry prompt.
+
+SPECIALIST_PROMPT_OVERRIDES = {
+    "cue_claim": {
+        "regulatory_analyst": CUE_REGULATORY_PROMPT,
+        "case_law_researcher": CUE_CASE_LAW_PROMPT,
+    },
+    "eligibility_check": {
+        "regulatory_analyst": ELIGIBILITY_REGULATORY_PROMPT,
+        "procedural_tactician": ELIGIBILITY_PROCEDURAL_PROMPT,
+    },
+    "appeal_strategy": {
+        "case_law_researcher": APPEAL_CASE_LAW_PROMPT,
+        "procedural_tactician": APPEAL_PROCEDURAL_PROMPT,
+    },
+}
+
+
 # ── Agentic Loop ──────────────────────────────────────────────────
 
 
@@ -58,11 +83,13 @@ async def run_specialist(
     system_prompt: str,
     tools: list[dict],
     facts: dict,
+    max_iterations: int = MAX_TOOL_ITERATIONS,
+    model: str = SPECIALIST_MODEL,
 ) -> dict:
     """Run a single specialist agent with adaptive thinking and tool use.
 
     Loops until the model stops calling tools (end_turn), up to
-    MAX_TOOL_ITERATIONS iterations. Returns {"name": ..., "memo": ...}.
+    max_iterations iterations. Returns {"name": ..., "memo": ...}.
     """
     user_message = (
         f"CASE FACTS:\n{json.dumps(facts, indent=2)}\n\n"
@@ -77,11 +104,11 @@ async def run_specialist(
 
     print(f"  [{display_name}] Starting research...", file=sys.stderr)
 
-    while iteration < MAX_TOOL_ITERATIONS:
+    while iteration < max_iterations:
         iteration += 1
 
         response = await client.messages.create(
-            model=SPECIALIST_MODEL,
+            model=model,
             max_tokens=SPECIALIST_MAX_TOKENS,
             system=system_prompt,
             thinking=SPECIALIST_THINKING,
@@ -92,7 +119,7 @@ async def run_specialist(
         # Log every response: iteration, stop_reason, block types, token usage
         block_summary = ", ".join(b.type for b in response.content)
         print(
-            f"  [{display_name}] iter={iteration}/{MAX_TOOL_ITERATIONS} "
+            f"  [{display_name}] iter={iteration}/{max_iterations} "
             f"stop={response.stop_reason} "
             f"in={response.usage.input_tokens} out={response.usage.output_tokens} "
             f"blocks=[{block_summary}]",
@@ -150,7 +177,7 @@ async def run_specialist(
 
     # Safety valve
     print(
-        f"  [{display_name}] WARNING: Hit max iterations ({MAX_TOOL_ITERATIONS})",
+        f"  [{display_name}] WARNING: Hit max iterations ({max_iterations})",
         file=sys.stderr,
     )
     return {
@@ -160,6 +187,45 @@ async def run_specialist(
 
 
 # ── Parallel Fan-Out ──────────────────────────────────────────────
+
+
+async def run_selected_specialists(
+    client: AsyncAnthropic,
+    facts: dict,
+    specialist_names: list[str],
+    max_tool_iterations: int = MAX_TOOL_ITERATIONS,
+    model: str = SPECIALIST_MODEL,
+    query_type: str = None,
+) -> list[dict]:
+    """Run a subset of specialist agents in parallel.
+
+    specialist_names: list of agent name keys (e.g. ["regulatory_analyst", "procedural_tactician"])
+    max_tool_iterations: per-type iteration cap from routing profile
+    model: model override for this run
+    query_type: when provided, looks up SPECIALIST_PROMPT_OVERRIDES to swap in
+                type-specific prompts for any matching specialists
+
+    Total time = slowest selected agent (asyncio.gather).
+    """
+    selected = [s for s in SPECIALISTS if s["name"] in specialist_names]
+    overrides = SPECIALIST_PROMPT_OVERRIDES.get(query_type, {}) if query_type else {}
+
+    async with httpx.AsyncClient() as http_client:
+        tasks = [
+            run_specialist(
+                client=client,
+                http_client=http_client,
+                name=spec["name"],
+                display_name=spec["display_name"],
+                system_prompt=overrides.get(spec["name"], spec["system_prompt"]),
+                tools=AGENT_TOOLS[spec["name"]],
+                facts=facts,
+                max_iterations=max_tool_iterations,
+                model=model,
+            )
+            for spec in selected
+        ]
+        return list(await asyncio.gather(*tasks))
 
 
 async def run_all_specialists(

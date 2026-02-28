@@ -22,6 +22,123 @@ SPECIALIST_THINKING = {"type": "adaptive"}
 # ── Safety Valve ──────────────────────────────────────────────────
 MAX_TOOL_ITERATIONS = 5   # was 15
 
+# ── Quick Answer Configuration ────────────────────────────────────
+QUICK_ANSWER_MODEL = "claude-haiku-4-5-20251001"
+QUICK_ANSWER_MAX_TOKENS = 2048
+QUICK_ANSWER_MAX_TOOL_ITERATIONS = 3
+
+# ── Classification Schema ─────────────────────────────────────────
+CLASSIFICATION_SCHEMA = {
+    "name": "classify_query",
+    "description": "Classify the incoming VA query to determine routing strategy",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "query_type": {
+                "type": "string",
+                "enum": [
+                    "rating_increase",
+                    "quick_question",
+                    "eligibility_check",
+                    "cue_claim",
+                    "appeal_strategy",
+                    "benefits_overview",
+                ],
+                "description": "The query type that best matches the input",
+            },
+            "confidence": {
+                "type": "number",
+                "description": "Classification confidence 0.0-1.0",
+            },
+            "classification_rationale": {
+                "type": "string",
+                "description": "Brief explanation of why this type was chosen",
+            },
+            "topic_keywords": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Key terms extracted from the query",
+            },
+            "skip_intake": {
+                "type": "boolean",
+                "description": "True if structured intake parsing can be skipped",
+            },
+            "quick_answer": {
+                "type": "boolean",
+                "description": "True if the full specialist pipeline can be bypassed",
+            },
+        },
+        "required": [
+            "query_type",
+            "confidence",
+            "classification_rationale",
+            "topic_keywords",
+            "skip_intake",
+            "quick_answer",
+        ],
+        "additionalProperties": False,
+    },
+}
+
+# ── Routing Profiles ──────────────────────────────────────────────
+# Defines which specialists run, iteration cap, and models per query type.
+ROUTING_PROFILES = {
+    "rating_increase": {
+        "specialists": [
+            "regulatory_analyst",
+            "case_law_researcher",
+            "cp_exam_critic",
+            "evidence_strategist",
+            "procedural_tactician",
+        ],
+        "max_tool_iterations": MAX_TOOL_ITERATIONS,
+        "specialist_model": SPECIALIST_MODEL,
+        "synthesis_model": SYNTHESIS_MODEL,
+        "run_synthesis": True,
+        "quick_answer": False,
+    },
+    "quick_question": {
+        "specialists": [],
+        "max_tool_iterations": QUICK_ANSWER_MAX_TOOL_ITERATIONS,
+        "specialist_model": QUICK_ANSWER_MODEL,
+        "synthesis_model": None,
+        "run_synthesis": False,
+        "quick_answer": True,
+    },
+    "eligibility_check": {
+        "specialists": ["regulatory_analyst", "procedural_tactician"],
+        "max_tool_iterations": 6,
+        "specialist_model": SPECIALIST_MODEL,
+        "synthesis_model": None,
+        "run_synthesis": False,
+        "quick_answer": False,
+    },
+    "cue_claim": {
+        "specialists": ["regulatory_analyst", "case_law_researcher"],
+        "max_tool_iterations": MAX_TOOL_ITERATIONS,
+        "specialist_model": SPECIALIST_MODEL,
+        "synthesis_model": SYNTHESIS_MODEL,
+        "run_synthesis": True,
+        "quick_answer": False,
+    },
+    "appeal_strategy": {
+        "specialists": ["case_law_researcher", "procedural_tactician"],
+        "max_tool_iterations": 6,
+        "specialist_model": SPECIALIST_MODEL,
+        "synthesis_model": SPECIALIST_MODEL,
+        "run_synthesis": True,
+        "quick_answer": False,
+    },
+    "benefits_overview": {
+        "specialists": [],
+        "max_tool_iterations": QUICK_ANSWER_MAX_TOOL_ITERATIONS,
+        "specialist_model": QUICK_ANSWER_MODEL,
+        "synthesis_model": None,
+        "run_synthesis": False,
+        "quick_answer": True,
+    },
+}
+
 # ── Intake Schema ─────────────────────────────────────────────────
 INTAKE_SCHEMA = {
     "name": "veteran_claim_intake",
