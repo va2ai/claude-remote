@@ -1,16 +1,38 @@
 # VA Attorney Research Agent
 
-A multi-agent AI system for researching veterans' disability claims. Accepts a veteran's plain-text narrative and produces a comprehensive legal research memo covering regulatory analysis, case law, C&P exam critique, evidence strategy, and procedural options.
+A multi-agent AI system for researching veterans' disability claims. Accepts a veteran's plain-text narrative and produces a calibrated legal research memo — from a 2-paragraph eligibility answer to a full multi-section legal memo with BVA citations, depending on what the query calls for.
 
 ## How It Works
 
-Three phases run sequentially:
+Four phases run sequentially:
 
-1. **Intake** (`claude-haiku-4-5`) — parses the narrative into structured facts using tool-forced structured output (condition, symptoms, ratings, appeal lanes, TDIU eligibility, etc.)
-2. **Research** (`claude-sonnet-4-6`, 5x in parallel) — each specialist agent uses real BVA API tools to look up CFR regulations, BVA case law, KnowVA guidance, and Federal Register documents; capped at 5 tool iterations each
-3. **Synthesis** (`claude-opus-4-6`) — Senior Partner consolidates all five memos into a single unified research memo
+1. **Classify** (`claude-haiku-4-5`) — determines query type and response depth before any research begins; routes to the appropriate pipeline
+2. **Intake** (`claude-haiku-4-5`) — parses the narrative into structured facts (condition, symptoms, ratings, appeal lanes, TDIU eligibility, etc.)
+3. **Research** (`claude-sonnet-4-6`, parallel) — specialist agents use real BVA API tools to look up CFR regulations, BVA case law, KnowVA guidance, and Federal Register documents
+4. **Synthesis** (`claude-opus-4-6` or `claude-sonnet-4-6`) — Senior Partner consolidates specialist memos into a single unified output calibrated to the requested depth
 
-Total runtime is typically 2-4 minutes depending on API latency.
+## Query Routing
+
+The classifier determines both the pipeline and output depth before research starts.
+
+### Query Types
+
+| Type | Specialists | Synthesis | Description |
+|------|-------------|-----------|-------------|
+| `rating_increase` | All 5 | opus | Full claim narrative with denied increase |
+| `eligibility_check` | Regulatory + Procedural | sonnet | "Do I qualify for TDIU/SMC/etc.?" |
+| `appeal_strategy` | Case Law + Procedural | sonnet | Which appeal lane to file |
+| `cue_claim` | Regulatory + Case Law | opus | Clear and Unmistakable Error research |
+| `quick_question` | None | None | Simple factual VA law question |
+| `benefits_overview` | None | None | Educational overview with no claim details |
+
+### Response Depth
+
+| Depth | Output | Trigger signals |
+|-------|--------|-----------------|
+| `brief` | 2–4 paragraphs, direct answer | "Do I qualify?", "Am I eligible?", yes/no questions |
+| `standard` | Structured sections, key citations | "How do I apply?", "What are my options?" |
+| `comprehensive` | Full legal memo with all citations, tables, BVA cases | "Analyze my claim", detailed narrative + explicit analysis asks |
 
 ## Setup
 
@@ -41,25 +63,25 @@ python main.py 2>&1 | tee run.log
 
 ## Output
 
-Progress is printed to stderr (verbose per-iteration) so it does not pollute the memo:
+Progress is printed to stderr so it does not pollute the memo:
 
 ```
 ============================================================
-PHASE 1: Parsing veteran's narrative...
-  Intake complete in 2.1s
-  Condition: PTSD
-  Current rating: 50%
-  Target rating: 70%
+CLASSIFYING query...
+  Query type  : eligibility_check
+  Confidence  : 0.95
+  Quick path  : False
+  Specialists : ['regulatory_analyst', 'procedural_tactician']
+  Depth       : brief
 ...
-PHASE 2: Running 5 specialist agents in parallel...
+PHASE 2: Running 2 specialist agent(s) in parallel...
   [Regulatory Analyst] Starting research...
-  [Regulatory Analyst] iter=1/5 stop=tool_use in=1234 out=456 blocks=[thinking, tool_use]
-  [Regulatory Analyst]   -> tool: bva_cfr_section input={"title": "38", "part": "4"}
-  [Regulatory Analyst]   <- result: ...
-  [Regulatory Analyst] iter=2/5 stop=end_turn in=... out=... blocks=[thinking, text]
-  [Regulatory Analyst] Complete (2 iteration(s), 3241 chars)
+  [Regulatory Analyst] iter=1/6 stop=tool_use in=1234 out=456 blocks=[thinking, tool_use]
+  [Regulatory Analyst]   -> tool: cfr_section input={"part": "4", "section": "16a"}
+  [Regulatory Analyst] Complete (2 iteration(s), 1843 chars)
 ...
-TOTAL TIME: 187.3s
+PHASE 3: Synthesizing final memo...
+TOTAL TIME: 42.1s
 ```
 
 The final memo goes to stdout in markdown format.
@@ -78,12 +100,13 @@ The final memo goes to stdout in markdown format.
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| Intake model | `claude-haiku-4-5-20251001` | Structured extraction only |
+| Classifier/Intake model | `claude-haiku-4-5-20251001` | Fast and cheap |
 | Specialist model | `claude-sonnet-4-6` | Was opus-4-6; 5x cheaper |
-| Synthesis model | `claude-opus-4-6` | Kept for final memo quality |
-| Specialist max tokens | 4096 | Was 8192 |
-| Synthesis max tokens | 8000 | Was 16000 |
-| Max tool iterations | 5 | Was 15; safety valve per specialist |
+| Synthesis model | `claude-opus-4-6` | Full pipeline only |
+| Eligibility/Appeal synthesis | `claude-sonnet-4-6` | Lighter model for focused queries |
+| Specialist max tokens | 4096 | |
+| Synthesis max tokens | 8000 | |
+| Max tool iterations | 5 | Safety valve per specialist |
 
 ## Tests
 
@@ -96,15 +119,20 @@ python -m pytest tests/test_agents.py -v
 |------|-----------------|
 | `test_exits_immediately_on_end_turn` | Returns memo on first `end_turn` with no tool calls |
 | `test_tool_call_then_end_turn` | One tool call round-trip; tool_result included in second request |
-| `test_no_empty_user_message_when_no_tool_blocks` | No empty user message appended when stop is not `end_turn` but no tool_use blocks exist (prevents 400 error) |
-| `test_multiple_tool_calls_in_one_response` | All tool_use blocks in a single response are batched and returned together |
+| `test_no_empty_user_message_when_no_tool_blocks` | No empty user message when stop is not `end_turn` but no tool_use blocks exist (prevents 400 error) |
+| `test_multiple_tool_calls_in_one_response` | All tool_use blocks in a single response are batched together |
 | `test_hits_max_iterations` | Safety valve returns fallback memo after `MAX_TOOL_ITERATIONS` |
+| `test_run_selected_specialists_uses_prompt_overrides` | Query-type-specific prompts are injected per specialist |
+| `test_run_selected_specialists_falls_back_to_default_prompt` | Default prompts used when no override exists |
+| `test_synthesis_accepts_model_param` | Synthesis model override is passed through correctly |
 
 ## Implementation Notes
 
-- **Intake structured output** — uses `tool_choice: {type: "tool"}` to force the schema tool, ensuring Haiku always returns valid JSON matching `INTAKE_SCHEMA`; result is read from `response.content[0].input`
-- **Empty tool result guard** — if `stop_reason` is not `end_turn` but no `tool_use` blocks are present, the loop breaks rather than appending an empty user message (which causes a 400 from the API)
-- **Thinking blocks** — specialist responses include thinking blocks; the full `response.content` (including thinking) is preserved as the assistant message before tool results are appended
+- **Classifier-first routing** — Haiku classifies query type and response depth before intake runs; `quick_question` and `benefits_overview` skip intake and all specialists entirely
+- **Response depth calibration** — `response_depth` flows from classifier → specialists → synthesis; each layer appends a depth hint to its user message so output scales to `brief` / `standard` / `comprehensive`
+- **Intake structured output** — uses `tool_choice: {type: "tool"}` to force the schema tool; result read from `response.content[0].input`
+- **Empty tool result guard** — if `stop_reason` is not `end_turn` but no `tool_use` blocks are present, the loop breaks rather than appending an empty user message (prevents 400)
+- **Thinking blocks** — full `response.content` (including thinking) is preserved as the assistant message before tool results are appended; stripping thinking blocks causes API errors with extended thinking models
 
 ## Environment Variables
 
