@@ -412,6 +412,77 @@
   .m-pill.on { border-color: #334; color: var(--text2); }
 
   .sheet-divider { border: none; border-top: 1px solid #1e1e24; margin: 6px 0; }
+
+  /* ─── template variable modal (bottom sheet style) ─── */
+  .tpl-modal-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    z-index: 90; animation: fadeIn .2s ease-out;
+  }
+  .tpl-modal-backdrop.visible { display: block; }
+  .tpl-modal-sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 0 20px calc(20px + var(--safe-bottom));
+    transform: translateY(100%); transition: transform .35s cubic-bezier(.32,.72,0,1);
+  }
+  .tpl-modal-sheet.open { transform: translateY(0); }
+  .tpl-modal-handle {
+    width: 36px; height: 4px; background: #444; border-radius: 2px;
+    margin: 10px auto 14px;
+  }
+  .tpl-modal-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+  .tpl-modal-icon { font-size: 20px; }
+  .tpl-modal-title {
+    flex: 1; font-family: var(--serif); font-size: 18px; font-weight: 600; color: #fff;
+  }
+  .tpl-modal-close {
+    background: none; border: none; color: var(--text3);
+    font-size: 22px; cursor: pointer; padding: 4px 8px;
+    min-width: 36px; min-height: 36px; display: flex;
+    align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tpl-modal-close:active { color: var(--text); }
+  .tpl-modal-preview {
+    padding: 12px 14px; font-size: 12px; line-height: 1.65;
+    color: var(--text3); background: var(--surface2);
+    border-radius: 14px; font-family: var(--mono);
+    white-space: pre-wrap; word-break: break-word; margin-bottom: 16px;
+  }
+  .tpl-var-highlight {
+    color: var(--banana); font-weight: 600;
+    background: var(--banana-dim); padding: 1px 4px; border-radius: 4px;
+  }
+  .tpl-modal-fields {
+    display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px;
+  }
+  .tpl-field-group { display: flex; flex-direction: column; gap: 5px; }
+  .tpl-field-label {
+    font-size: 11px; font-weight: 600; color: var(--text2);
+    text-transform: capitalize; letter-spacing: .3px;
+  }
+  .tpl-field-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 12px; padding: 14px 16px; color: var(--text);
+    font-size: 15px; font-family: var(--font); transition: border-color .2s;
+    -webkit-appearance: none; appearance: none; min-height: 48px;
+  }
+  .tpl-field-input:focus { outline: none; border-color: var(--banana); }
+  .tpl-field-input::placeholder { color: var(--text3); font-style: italic; }
+  .tpl-modal-footer {
+    display: flex; gap: 10px;
+  }
+  .tpl-modal-footer .btn-cancel {
+    flex: 1; background: transparent; border: 1px solid var(--border2);
+    border-radius: 14px; padding: 14px; font-size: 15px; color: var(--text2);
+    cursor: pointer; font-family: var(--font); min-height: 50px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tpl-modal-footer .btn-cancel:active { background: #ffffff06; }
+  .tpl-modal-footer .btn-primary { flex: 2; }
 </style>
 </head>
 <body>
@@ -536,6 +607,23 @@
     </div>
   </div>
 
+  <!-- Template Variable Modal (bottom sheet) -->
+  <div class="tpl-modal-backdrop" id="tplBackdrop" onclick="closeTemplateModal()"></div>
+  <div class="tpl-modal-sheet" id="tplSheet">
+    <div class="tpl-modal-handle"></div>
+    <div class="tpl-modal-header">
+      <span class="tpl-modal-icon" id="tplModalIcon"></span>
+      <span class="tpl-modal-title" id="tplModalTitle"></span>
+      <button class="tpl-modal-close" onclick="closeTemplateModal()">&times;</button>
+    </div>
+    <div class="tpl-modal-preview" id="tplModalPreview"></div>
+    <div class="tpl-modal-fields" id="tplModalFields"></div>
+    <div class="tpl-modal-footer">
+      <button class="btn-cancel" onclick="closeTemplateModal()">Cancel</button>
+      <button class="btn-primary" onclick="confirmTemplate()">Use Prompt</button>
+    </div>
+  </div>
+
   <!-- Bottom Prompt Bar -->
   <div class="prompt-bar">
     <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
@@ -571,6 +659,7 @@ let thinkingLevel = "none";
 let uploadedImageData = null;
 let uploadedImageMime = null;
 let uploadedImageName = null;
+let activeTemplateIndex = null;
 
 const MODELS = [
   { id: "gemini-3.1-flash-image-preview", name: "Nano Banana 2", badge: "3.1 Flash", accent: "#FFD600", desc: "Speed & volume optimized", resolutions: ["512px","1K","2K","4K"], maxImages: 4, supportsImageSearch: true, thinkingLevels: ["none","minimal","low","medium","high"] },
@@ -581,15 +670,15 @@ const RATIOS = ["1:1","2:3","3:2","3:4","4:3","9:16","16:9"];
 const RESOLUTIONS = ["512px","1K","2K","4K"];
 const THINKING_LEVELS = ["none","minimal","low","medium","high"];
 const TEMPLATES = [
-  { icon: "📦", label: "Product", prompt: "A high-resolution, studio-lit product photograph of a sleek matte-black wireless earbud case resting on a marble surface. Three-point softbox lighting with soft reflections. Ultra-realistic, sharp focus on the brushed aluminum finish. 4:3 aspect ratio." },
-  { icon: "🎨", label: "Sticker", prompt: "A kawaii-style sticker of a happy red panda holding a tiny glowing banana. Colorful, bold outlines, clean vector style, transparent background. No text." },
-  { icon: "✏️", label: "Logo", prompt: "Create a modern, minimalist logo for a coffee shop called \"The Daily Grind\" with elegant serif typography. A coffee cup icon is subtly integrated into the letter D. Cream background with dark brown accents." },
-  { icon: "🏙️", label: "Isometric", prompt: "A clear, 45-degree top-down isometric miniature 3D cartoon scene of Tokyo at night, featuring Tokyo Tower, Shibuya crossing, cherry blossoms, and glowing neon signs. Soft refined textures with realistic PBR materials and gentle lifelike lighting. Clean minimalistic composition with a dark background." },
-  { icon: "🐕", label: "3D Icon", prompt: "An icon representing a cute golden retriever puppy sitting and looking at the camera. The background is white. Make the icon in a colorful and tactile 3D style with soft realistic shadows. No text." },
-  { icon: "🌄", label: "Landscape", prompt: "A breathtaking panoramic photograph of Norwegian fjords at golden hour. Mirror-like water reflections, dramatic cliff faces, a single red wooden cabin on the shore. Shot with a wide-angle lens. Vivid, rich colors with a warm atmospheric glow." },
-  { icon: "💬", label: "Comic", prompt: "Make a 3-panel comic strip in a clean, modern cartoon style. A programmer is debugging code late at night. Panel 1: staring at screen confused. Panel 2: adds a single semicolon. Panel 3: everything works, triumphant pose. Bold colors, speech bubbles with text." },
-  { icon: "🍽️", label: "Food", prompt: "A professional overhead food photograph of a beautifully plated bowl of ramen on a dark wooden table. Soft natural window light from the left. Steam rising from the broth. Garnished with a soft-boiled egg, nori, green onions, and chashu pork. Shot on a 50mm lens." },
-  { icon: "🌐", label: "Weather", prompt: "Generate an infographic of the current weather in Tokyo with temperatures, conditions and a 3-day forecast. Modern flat design with weather icons.", grounding: true },
+  { icon: "📦", label: "Product", prompt: "A high-resolution, studio-lit product photograph of a sleek {product} resting on {surface}. Three-point softbox lighting with soft reflections. Ultra-realistic, sharp focus. 4:3 aspect ratio.", defaults: { product: "matte-black wireless earbud case", surface: "a marble surface" } },
+  { icon: "🎨", label: "Sticker", prompt: "A kawaii-style sticker of a happy {animal} holding a tiny glowing {object}. Colorful, bold outlines, clean vector style, transparent background. No text.", defaults: { animal: "red panda", object: "banana" } },
+  { icon: "✏️", label: "Logo", prompt: "Create a modern, minimalist logo for a {business_type} called \"{business_name}\" with elegant serif typography. A {icon_element} icon is subtly integrated into the letter {letter}. {color_scheme}.", defaults: { business_type: "coffee shop", business_name: "The Daily Grind", icon_element: "coffee cup", letter: "D", color_scheme: "Cream background with dark brown accents" } },
+  { icon: "🏙️", label: "Isometric", prompt: "A clear, 45-degree top-down isometric miniature 3D cartoon scene of {city} at {time_of_day}, featuring {landmarks}. Soft refined textures with realistic PBR materials and gentle lifelike lighting. Clean minimalistic composition with a dark background.", defaults: { city: "Tokyo", time_of_day: "night", landmarks: "Tokyo Tower, Shibuya crossing, cherry blossoms, and glowing neon signs" } },
+  { icon: "🐕", label: "3D Icon", prompt: "An icon representing a cute {subject}. The background is {background_color}. Make the icon in a colorful and tactile 3D style with soft realistic shadows. No text.", defaults: { subject: "golden retriever puppy sitting and looking at the camera", background_color: "white" } },
+  { icon: "🌄", label: "Landscape", prompt: "A breathtaking panoramic photograph of {location} at {lighting}. {scene_details}. Shot with a wide-angle lens. Vivid, rich colors with a warm atmospheric glow.", defaults: { location: "Norwegian fjords", lighting: "golden hour", scene_details: "Mirror-like water reflections, dramatic cliff faces, a single red wooden cabin on the shore" } },
+  { icon: "💬", label: "Comic", prompt: "Make a {panel_count}-panel comic strip in a clean, modern cartoon style. {story}. Bold colors, speech bubbles with text.", defaults: { panel_count: "3", story: "A programmer is debugging code late at night. Panel 1: staring at screen confused. Panel 2: adds a single semicolon. Panel 3: everything works, triumphant pose" } },
+  { icon: "🍽️", label: "Food", prompt: "A professional overhead food photograph of a beautifully plated {dish} on a {table_surface}. Soft natural window light from the left. {garnish_details}. Shot on a 50mm lens.", defaults: { dish: "bowl of ramen", table_surface: "dark wooden table", garnish_details: "Steam rising from the broth. Garnished with a soft-boiled egg, nori, green onions, and chashu pork" } },
+  { icon: "🌐", label: "Weather", prompt: "Generate an infographic of the current weather in {city} with temperatures, conditions and a {forecast_range} forecast. Modern flat design with weather icons.", grounding: true, defaults: { city: "Tokyo", forecast_range: "3-day" } },
 ];
 
 /* ═══════════════════════ INIT ═══════════════════════ */
@@ -688,11 +777,12 @@ function renderThinkingLevels() {
 }
 
 function renderTemplates() {
-  document.getElementById("templates").innerHTML = TEMPLATES.map((t, i) => `
-    <button class="m-template" onclick="useTemplate(${i})">
-      <span class="t-icon">${t.icon}</span><span>${t.label}</span>
-    </button>
-  `).join("");
+  document.getElementById("templates").innerHTML = TEMPLATES.map((t, i) => {
+    const hasVars = /\{\w+\}/.test(t.prompt);
+    return `<button class="m-template" onclick="useTemplate(${i})">
+      <span class="t-icon">${t.icon}</span><span>${t.label}</span>${hasVars ? '<span style="font-size:10px;color:var(--text3);font-family:var(--mono);">{..}</span>' : ''}
+    </button>`;
+  }).join("");
 }
 
 function renderResults() {
@@ -834,17 +924,80 @@ function toggleImageSearch() {
   renderActiveParams();
 }
 
-function useTemplate(i) {
+function parseTemplateVars(promptStr) {
+  const regex = /\{(\w+)\}/g;
+  const seen = new Set();
+  const vars = [];
+  let match;
+  while ((match = regex.exec(promptStr)) !== null) {
+    if (!seen.has(match[1])) { seen.add(match[1]); vars.push(match[1]); }
+  }
+  return vars;
+}
+function formatVarName(v) {
+  return v.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+function buildTemplatePreview(promptStr) {
+  return escapeHtml(promptStr).replace(/\{(\w+)\}/g, '<span class="tpl-var-highlight">{$1}</span>');
+}
+function applyPromptText(prompt, tpl) {
   const promptArea = document.getElementById("promptArea");
-  promptArea.value = TEMPLATES[i].prompt;
+  promptArea.value = prompt;
   autoResize(promptArea);
   document.getElementById("generateBtn").disabled = false;
-  if (TEMPLATES[i].grounding && !googleSearchEnabled) {
+  if (tpl.grounding && !googleSearchEnabled) {
     googleSearchEnabled = true;
     document.getElementById("searchToggle").classList.add("active");
     renderActiveParams();
   }
   promptArea.focus();
+}
+function useTemplate(i) {
+  const tpl = TEMPLATES[i];
+  const vars = parseTemplateVars(tpl.prompt);
+  if (vars.length > 0) {
+    showTemplateModal(i);
+  } else {
+    applyPromptText(tpl.prompt, tpl);
+  }
+}
+function showTemplateModal(index) {
+  const tpl = TEMPLATES[index];
+  const vars = parseTemplateVars(tpl.prompt);
+  activeTemplateIndex = index;
+  document.getElementById("tplModalIcon").textContent = tpl.icon;
+  document.getElementById("tplModalTitle").textContent = tpl.label;
+  document.getElementById("tplModalPreview").innerHTML = buildTemplatePreview(tpl.prompt);
+  const fc = document.getElementById("tplModalFields");
+  fc.innerHTML = vars.map(v => {
+    const def = (tpl.defaults && tpl.defaults[v]) || "";
+    return `<div class="tpl-field-group">
+      <label class="tpl-field-label">${formatVarName(v)}</label>
+      <input class="tpl-field-input" type="text" data-var="${v}" value="${escapeHtml(def)}" placeholder="Enter ${formatVarName(v).toLowerCase()}…">
+    </div>`;
+  }).join("");
+  document.getElementById("tplBackdrop").classList.add("visible");
+  document.getElementById("tplSheet").classList.add("open");
+  document.body.style.overflow = "hidden";
+  setTimeout(() => { const f = fc.querySelector(".tpl-field-input"); if (f) { f.focus(); f.select(); } }, 400);
+}
+function closeTemplateModal() {
+  document.getElementById("tplSheet").classList.remove("open");
+  document.getElementById("tplBackdrop").classList.remove("visible");
+  document.body.style.overflow = "";
+  activeTemplateIndex = null;
+}
+function confirmTemplate() {
+  if (activeTemplateIndex === null) return;
+  const tpl = TEMPLATES[activeTemplateIndex];
+  let prompt = tpl.prompt;
+  document.querySelectorAll("#tplModalFields .tpl-field-input").forEach(inp => {
+    const v = inp.dataset.var;
+    const val = inp.value.trim() || (tpl.defaults && tpl.defaults[v]) || "";
+    prompt = prompt.replace(new RegExp("\\{" + v + "\\}", "g"), val);
+  });
+  closeTemplateModal();
+  applyPromptText(prompt, tpl);
 }
 
 /* ═══════════════════════ IMAGE UPLOAD ═══════════════════════ */
@@ -991,6 +1144,24 @@ function escapeHtml(s) {
 
 /* ═══════════════════════ GO ═══════════════════════ */
 init();
+/* ─── template modal event listeners ─── */
+document.addEventListener("keydown", function(e) {
+  if (!document.getElementById("tplSheet").classList.contains("open")) return;
+  if (e.key === "Escape") closeTemplateModal();
+});
+document.getElementById("tplModalFields").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") { e.preventDefault(); confirmTemplate(); }
+});
+// Swipe down to dismiss template modal
+(function() {
+  let startY = 0;
+  const sheet = document.getElementById("tplSheet");
+  sheet.addEventListener("touchstart", e => { startY = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener("touchmove", e => {
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 80 && sheet.scrollTop <= 0) closeTemplateModal();
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>
