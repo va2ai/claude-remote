@@ -123,7 +123,8 @@ async def run_specialist(
                     }
                 )
 
-        messages.append({"role": "user", "content": tool_results})
+        if tool_results:
+            messages.append({"role": "user", "content": tool_results})
 
     # Safety valve
     print(

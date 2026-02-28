@@ -17,11 +17,11 @@ async def parse_intake(client: AsyncAnthropic, raw_text: str) -> dict:
         max_tokens=INTAKE_MAX_TOKENS,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": raw_text}],
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": INTAKE_SCHEMA,
-            }
-        },
+        tools=[{
+            "name": INTAKE_SCHEMA["name"],
+            "description": INTAKE_SCHEMA["description"],
+            "input_schema": INTAKE_SCHEMA["schema"],
+        }],
+        tool_choice={"type": "tool", "name": INTAKE_SCHEMA["name"]},
     )
-    return json.loads(response.content[0].text)
+    return response.content[0].input

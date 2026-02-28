@@ -8,19 +8,19 @@ BVA_API_BASE_URL = os.getenv(
 
 # ── Model Configuration ───────────────────────────────────────────
 INTAKE_MODEL = "claude-haiku-4-5-20251001"
-SPECIALIST_MODEL = "claude-opus-4-6"
-SYNTHESIS_MODEL = "claude-opus-4-6"
+SPECIALIST_MODEL = "claude-sonnet-4-6"   # was opus-4-6 (5x cheaper)
+SYNTHESIS_MODEL = "claude-opus-4-6"      # keep opus for final memo quality
 
 # ── Token Limits ──────────────────────────────────────────────────
 INTAKE_MAX_TOKENS = 2048
-SPECIALIST_MAX_TOKENS = 8192
-SYNTHESIS_MAX_TOKENS = 16000
+SPECIALIST_MAX_TOKENS = 4096   # was 8192
+SYNTHESIS_MAX_TOKENS = 8000    # was 16000
 
 # ── Thinking Configuration ────────────────────────────────────────
 SPECIALIST_THINKING = {"type": "adaptive"}
 
 # ── Safety Valve ──────────────────────────────────────────────────
-MAX_TOOL_ITERATIONS = 15
+MAX_TOOL_ITERATIONS = 5   # was 15
 
 # ── Intake Schema ─────────────────────────────────────────────────
 INTAKE_SCHEMA = {
