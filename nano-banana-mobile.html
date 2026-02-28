@@ -594,6 +594,39 @@
     .app-sidebar { width: 340px; }
     .results-area { padding: 24px 36px; }
   }
+
+  /* ─── MODE TABS ─── */
+  .mode-tabs {
+    display: flex; gap: 6px; padding: 12px 16px 8px;
+  }
+  .mode-tab {
+    flex: 1; background: transparent; border: 1px solid var(--border2);
+    border-radius: 10px; padding: 9px 12px; font-size: 13px; color: var(--text2);
+    cursor: pointer; font-family: var(--font); font-weight: 500;
+    transition: all .15s; -webkit-tap-highlight-color: transparent; min-height: 40px;
+  }
+  .mode-tab:active { background: #ffffff06; }
+  .mode-tab.active { border-color: var(--banana); color: var(--banana); background: var(--banana-dim); }
+
+  /* ─── VIDEO RESULT IN CARD ─── */
+  .m-result-card video {
+    width: 100%; border-radius: 14px; display: block; margin-bottom: 8px; background: #000;
+  }
+
+  /* ─── VIDEO UPLOAD HINT (video sidebar) ─── */
+  .video-upload-hint {
+    padding: 10px 12px; border: 1px dashed var(--border2);
+    border-radius: 10px; font-size: 12px; color: var(--text3);
+    text-align: center; line-height: 1.5;
+  }
+  .video-upload-hint.uploaded { border-style: solid; border-color: #22c55e44; color: var(--green); }
+
+  @media (min-width: 768px) {
+    .m-result-card video {
+      max-height: 72vh; width: auto; max-width: 100%;
+      margin-left: auto; margin-right: auto;
+    }
+  }
 </style>
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
@@ -634,67 +667,131 @@
       <!-- Left sidebar: model selector, config, quick prompts -->
       <aside class="app-sidebar">
 
-        <!-- Model selector -->
-        <div class="model-strip">
-          <button
-            v-for="(m, i) in MODELS"
-            :key="m.id"
-            class="m-model-card"
-            :class="{ selected: i === selectedModel }"
-            :style="i === selectedModel ? { borderColor: m.accent, background: m.accent + '12' } : {}"
-            @click="selectModel(i)"
-          >
-            <div class="m-top">
-              <span class="m-name">{{ m.name }}</span>
-              <span class="m-badge" :style="{ background: m.accent }">{{ m.badge }}</span>
+        <!-- Mode Tabs -->
+        <div class="mode-tabs">
+          <button class="mode-tab" :class="{ active: mode === 'image' }" @click="switchMode('image')">🖼️ Images</button>
+          <button class="mode-tab" :class="{ active: mode === 'video' }" @click="switchMode('video')">🎬 Video</button>
+        </div>
+
+        <!-- IMAGE MODE sidebar -->
+        <template v-if="mode === 'image'">
+
+          <!-- Model selector -->
+          <div class="model-strip">
+            <button
+              v-for="(m, i) in MODELS"
+              :key="m.id"
+              class="m-model-card"
+              :class="{ selected: i === selectedModel }"
+              :style="i === selectedModel ? { borderColor: m.accent, background: m.accent + '12' } : {}"
+              @click="selectModel(i)"
+            >
+              <div class="m-top">
+                <span class="m-name">{{ m.name }}</span>
+                <span class="m-badge" :style="{ background: m.accent }">{{ m.badge }}</span>
+              </div>
+              <div class="m-desc">{{ m.desc }}</div>
+            </button>
+          </div>
+
+          <!-- Ratio + Resolution chips -->
+          <div class="config-section">
+            <div class="config-label">Aspect Ratio</div>
+            <div class="chip-scroll">
+              <button
+                v-for="r in RATIOS"
+                :key="r"
+                class="m-chip"
+                :class="{ selected: r === selectedRatio }"
+                @click="selectRatio(r)"
+              >{{ r }}</button>
             </div>
-            <div class="m-desc">{{ m.desc }}</div>
-          </button>
-        </div>
-
-        <!-- Ratio + Resolution chips -->
-        <div class="config-section">
-          <div class="config-label">Aspect Ratio</div>
-          <div class="chip-scroll">
-            <button
-              v-for="r in RATIOS"
-              :key="r"
-              class="m-chip"
-              :class="{ selected: r === selectedRatio }"
-              @click="selectRatio(r)"
-            >{{ r }}</button>
           </div>
-        </div>
-        <div class="config-section">
-          <div class="config-label">Resolution</div>
-          <div class="chip-scroll">
-            <button
-              v-for="item in availableResolutions"
-              :key="item.value"
-              class="m-chip"
-              :class="{ selected: item.selected, disabled: !item.available }"
-              :disabled="!item.available"
-              @click="item.available && selectRes(item.value)"
-            >{{ item.value }}</button>
+          <div class="config-section">
+            <div class="config-label">Resolution</div>
+            <div class="chip-scroll">
+              <button
+                v-for="item in availableResolutions"
+                :key="item.value"
+                class="m-chip"
+                :class="{ selected: item.selected, disabled: !item.available }"
+                :disabled="!item.available"
+                @click="item.available && selectRes(item.value)"
+              >{{ item.value }}</button>
+            </div>
           </div>
-        </div>
 
-        <!-- Quick Prompts -->
-        <div class="config-section">
-          <div class="config-label">Quick Prompts</div>
-        </div>
-        <div class="template-strip">
-          <button
-            v-for="(t, i) in templateList"
-            :key="i"
-            class="m-template"
-            @click="useTemplate(i)"
-          >
-            <span class="t-icon">{{ t.icon }}</span>
-            <span>{{ t.label }}</span>
-            <span v-if="t.hasVars" style="font-size:10px;color:var(--text3);font-family:var(--mono);">{..}</span>
-          </button>
-        </div>
+          <!-- Quick Prompts -->
+          <div class="config-section">
+            <div class="config-label">Quick Prompts</div>
+          </div>
+          <div class="template-strip">
+            <button
+              v-for="(t, i) in templateList"
+              :key="i"
+              class="m-template"
+              @click="useTemplate(i)"
+            >
+              <span class="t-icon">{{ t.icon }}</span>
+              <span>{{ t.label }}</span>
+              <span v-if="t.hasVars" style="font-size:10px;color:var(--text3);font-family:var(--mono);">{..}</span>
+            </button>
+          </div>
+
+        </template>
+
+        <!-- VIDEO MODE sidebar -->
+        <template v-else>
+
+          <!-- Veo model card -->
+          <div class="model-strip">
+            <div class="m-model-card selected" style="border-color:#7C3AED;background:#7C3AED12;width:100%;cursor:default;">
+              <div class="m-top">
+                <span class="m-name">{{ VEO_MODEL.name }}</span>
+                <span class="m-badge" :style="{ background: VEO_MODEL.accent }">{{ VEO_MODEL.badge }}</span>
+              </div>
+              <div class="m-desc">{{ VEO_MODEL.desc }}</div>
+            </div>
+          </div>
+
+          <!-- Duration chips -->
+          <div class="config-section">
+            <div class="config-label">Duration</div>
+            <div class="chip-scroll">
+              <button
+                v-for="d in VIDEO_DURATIONS"
+                :key="d"
+                class="m-chip"
+                :class="{ selected: d === veoDuration }"
+                @click="veoDuration = d"
+              >{{ d }}s</button>
+            </div>
+          </div>
+
+          <!-- Video aspect ratio chips -->
+          <div class="config-section">
+            <div class="config-label">Aspect Ratio</div>
+            <div class="chip-scroll">
+              <button
+                v-for="r in VIDEO_RATIOS"
+                :key="r"
+                class="m-chip"
+                :class="{ selected: r === veoRatio }"
+                @click="veoRatio = r"
+              >{{ r }}</button>
+            </div>
+          </div>
+
+          <!-- Upload hint -->
+          <div class="config-section">
+            <div class="config-label">Source Image</div>
+            <div class="video-upload-hint" :class="{ uploaded: !!uploadedImageData }">
+              <p v-if="!uploadedImageData">📎 Tap the attach button below to upload a source image</p>
+              <p v-else>✓ Image ready — describe the motion below</p>
+            </div>
+          </div>
+
+        </template>
 
       </aside>
 
@@ -718,12 +815,18 @@
         <!-- Loading state -->
         <div v-if="results.length === 0 && isGenerating" class="empty-state">
           <div class="spin" style="width:32px;height:32px;border:3px solid #333;border-top-color:var(--banana);border-radius:50%;margin-bottom:16px;"></div>
-          <p style="color:#aaa;font-size:14px;">Generating with {{ currentModel.name }}…</p>
-          <p style="color:var(--text3);font-size:12px;margin-top:4px;">This may take 10–30 seconds</p>
+          <p style="color:#aaa;font-size:14px;">
+            {{ mode === 'video'
+               ? (isPolling ? 'Generating video with Veo 2… polling for result' : 'Starting Veo 2 generation…')
+               : 'Generating with ' + currentModel.name + '…' }}
+          </p>
+          <p style="color:var(--text3);font-size:12px;margin-top:4px;">
+            {{ mode === 'video' ? 'Video generation takes 30–120 seconds' : 'This may take 10–30 seconds' }}
+          </p>
         </div>
         <!-- Results list -->
         <template v-if="results.length > 0">
-          <p class="results-label">Generated Images ({{ results.length }})</p>
+          <p class="results-label">{{ resultsLabel }}</p>
           <div
             v-for="(r, i) in results"
             :key="r.ts"
@@ -732,9 +835,13 @@
           >
             <div class="m-result-meta">
               <span>{{ r.modelName }} · {{ r.time }}</span>
-              <a v-if="r.images.length > 0" :href="r.images[0]" :download="'nano-banana-' + r.ts + '.png'">Save</a>
+              <a v-if="r.video" :href="r.video" :download="'nano-banana-video-' + r.ts + '.mp4'">Save</a>
+              <a v-else-if="r.images && r.images.length > 0" :href="r.images[0]" :download="'nano-banana-' + r.ts + '.png'">Save</a>
             </div>
-            <img v-for="(src, si) in r.images" :key="si" :src="src" alt="Generated">
+            <!-- Video result -->
+            <video v-if="r.video" :src="r.video" controls playsinline></video>
+            <!-- Image results -->
+            <img v-for="(src, si) in (r.images || [])" :key="si" :src="src" alt="Generated">
             <p v-if="r.text" class="resp-text">{{ r.text }}</p>
             <p v-if="r.grounded" class="grounding-meta">🔍 Grounded with Google Search</p>
             <p class="resp-prompt">"{{ r.prompt }}"</p>
@@ -917,6 +1024,17 @@ const TEMPLATES = [
   { icon: "🌐", label: "Weather", prompt: "Generate an infographic of the current weather in {city} with temperatures, conditions and a {forecast_range} forecast. Modern flat design with weather icons.", grounding: true, defaults: { city: "Tokyo", forecast_range: "3-day" } },
 ];
 
+/* ═══════════════════════ VEO CONSTANTS ═══════════════════════ */
+const VEO_MODEL = {
+  id: "veo-2.0-generate-001",
+  name: "Veo 2",
+  badge: "Veo 2",
+  accent: "#7C3AED",
+  desc: "Image to video",
+};
+const VIDEO_DURATIONS = [5, 8];
+const VIDEO_RATIOS = ["16:9", "9:16", "1:1"];
+
 /* ═══════════════════════ VUE APP ═══════════════════════ */
 const { createApp } = Vue;
 
@@ -928,6 +1046,9 @@ createApp({
       RESOLUTIONS,
       THINKING_LEVELS,
       TEMPLATES,
+      VEO_MODEL,
+      VIDEO_DURATIONS,
+      VIDEO_RATIOS,
       // Key gate
       apiKeyInput: "",
       appActive: false,
@@ -950,6 +1071,11 @@ createApp({
       uploadedImageData: null,
       uploadedImageMime: null,
       uploadedImageName: null,
+      // Mode: image | video
+      mode: "image",
+      veoDuration: 5,
+      veoRatio: "16:9",
+      isPolling: false,
       // Template modal
       activeTemplateIndex: null,
       tplVarValues: {},
@@ -991,9 +1117,19 @@ createApp({
       return this.numImages < this.currentModel.maxImages;
     },
     sendBtnDisabled() {
+      if (this.mode === "video") return !this.promptText.trim() || this.isGenerating;
       return !this.promptText.trim() || this.isGenerating;
     },
     activePills() {
+      if (this.mode === "video") {
+        const pills = [
+          { label: VEO_MODEL.badge, on: false, style: "border-color:#7C3AED44;color:#a78bfa;" },
+          { label: this.veoRatio, on: false },
+          { label: `${this.veoDuration}s`, on: false },
+        ];
+        if (this.uploadedImageData) pills.push({ label: "🎬 Img→Vid", on: true, style: "border-color:#7C3AED44;color:#C084FC;" });
+        return pills;
+      }
       const model = this.currentModel;
       const pills = [
         { label: model.badge, on: false },
@@ -1046,7 +1182,18 @@ createApp({
       return `data:${this.uploadedImageMime};base64,${this.uploadedImageData}`;
     },
     promptPlaceholder() {
+      if (this.mode === "video") {
+        return this.uploadedImageData ? "Describe the motion or action…" : "Upload an image, then describe the motion…";
+      }
       return this.uploadedImageData ? "Describe edits to make…" : "Describe an image…";
+    },
+    resultsLabel() {
+      const total = this.results.length;
+      const hasVideo = this.results.some(r => r.video);
+      const hasImage = this.results.some(r => !r.video);
+      if (hasVideo && hasImage) return `Results (${total})`;
+      if (hasVideo) return `Generated Videos (${total})`;
+      return `Generated Images (${total})`;
     },
   },
 
@@ -1090,6 +1237,13 @@ createApp({
   },
 
   methods: {
+    /* ─── MODE ─── */
+    switchMode(m) {
+      if (this.mode === m) return;
+      this.mode = m;
+      this.errorMessage = "";
+    },
+
     /* ─── KEY GATE ─── */
     launch() {
       const key = this.apiKeyInput.trim();
@@ -1259,8 +1413,113 @@ createApp({
       return body;
     },
 
+    /* ─── BUILD VIDEO REQUEST ─── */
+    buildVideoRequest(prompt) {
+      const promptObj = { text: prompt };
+      if (this.uploadedImageData) {
+        promptObj.image = { imageBytes: this.uploadedImageData, mimeType: this.uploadedImageMime };
+      }
+      return {
+        prompt: promptObj,
+        generationConfig: {
+          durationSeconds: this.veoDuration,
+          numberOfVideos: 1,
+          aspectRatio: this.veoRatio,
+        },
+      };
+    },
+
+    /* ─── GENERATE VIDEO (Veo LRO) ─── */
+    async generateVideo() {
+      const prompt = this.promptText.trim();
+      if (!prompt || this.isGenerating) return;
+      this.isGenerating = true;
+      this.isPolling = false;
+      this.errorMessage = "";
+
+      this.$nextTick(() => {
+        if (this.$refs.scrollContent) {
+          this.$refs.scrollContent.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+
+      try {
+        // Step 1: start the LRO
+        const startUrl = `https://generativelanguage.googleapis.com/v1beta/models/${VEO_MODEL.id}:generateVideo?key=${this.API_KEY}`;
+        const startRes = await fetch(startUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(this.buildVideoRequest(prompt)),
+        });
+        if (!startRes.ok) {
+          const err = await startRes.json().catch(() => ({}));
+          throw new Error(err?.error?.message || `API error ${startRes.status}`);
+        }
+        const startData = await startRes.json();
+        const operationName = startData?.name;
+        if (!operationName) throw new Error("No operation name returned from Veo API");
+
+        // Step 2: poll until done (3s intervals, 120s max)
+        this.isPolling = true;
+        const pollUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${this.API_KEY}`;
+        const maxAttempts = 40;
+        let done = false;
+        let videoSrc = null;
+
+        for (let i = 0; i < maxAttempts && !done; i++) {
+          await new Promise(r => setTimeout(r, 3000));
+          const pollRes = await fetch(pollUrl);
+          if (!pollRes.ok) {
+            const err = await pollRes.json().catch(() => ({}));
+            throw new Error(err?.error?.message || `Poll error ${pollRes.status}`);
+          }
+          const pollData = await pollRes.json();
+          if (pollData.done) {
+            done = true;
+            const sample = pollData?.response?.generatedSamples?.[0]?.video;
+            if (!sample) throw new Error("No video sample in completed operation");
+            if (sample.videoBytes) {
+              videoSrc = `data:video/mp4;base64,${sample.videoBytes}`;
+            } else if (sample.uri) {
+              const sep = sample.uri.includes("?") ? "&" : "?";
+              const vRes = await fetch(`${sample.uri}${sep}key=${this.API_KEY}`);
+              if (!vRes.ok) throw new Error(`Could not fetch video (${vRes.status})`);
+              const blob = await vRes.blob();
+              videoSrc = URL.createObjectURL(blob);
+            }
+          }
+        }
+
+        if (!done) throw new Error("Video generation timed out (>120s). Please try again.");
+        if (!videoSrc) throw new Error("No video data received");
+
+        const now = new Date();
+        this.results.unshift({
+          video: videoSrc,
+          images: [],
+          text: "",
+          prompt,
+          modelName: VEO_MODEL.name,
+          ts: Date.now(),
+          time: now.toLocaleTimeString(),
+          grounded: false,
+        });
+      } catch (e) {
+        this.errorMessage = e.message;
+      } finally {
+        this.isGenerating = false;
+        this.isPolling = false;
+        this.$nextTick(() => {
+          if (this.$refs.scrollContent) {
+            this.$refs.scrollContent.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        });
+      }
+    },
+
     /* ─── GENERATE ─── */
     async generate() {
+      if (this.mode === "video") return this.generateVideo();
       const prompt = this.promptText.trim();
       if (!prompt || this.isGenerating) return;
       this.isGenerating = true;
