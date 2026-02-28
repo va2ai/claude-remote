@@ -2,9 +2,9 @@
 
 import asyncio
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, call
 
-from agents import run_specialist
+from agents import run_specialist, run_selected_specialists, SPECIALIST_PROMPT_OVERRIDES
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -186,3 +186,100 @@ async def test_hits_max_iterations():
 
     assert "maximum tool iterations" in result["memo"]
     assert client.messages.create.call_count == MAX_TOOL_ITERATIONS
+
+
+# ── Phase 3 Tests ──────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_run_selected_specialists_uses_prompt_overrides():
+    """When query_type='cue_claim' is passed, the regulatory_analyst specialist
+    is called with the CUE-specific prompt, not its default prompt."""
+    from agents import SPECIALISTS, SPECIALIST_PROMPT_OVERRIDES
+    from prompts.cue_claim import REGULATORY_PROMPT as CUE_REGULATORY_PROMPT
+
+    # Build a response that immediately ends the loop
+    response = make_response("end_turn", [make_text_block("CUE memo.")])
+    client = make_client(response)
+
+    captured_prompts = {}
+
+    async def fake_run_specialist(**kwargs):
+        captured_prompts[kwargs["name"]] = kwargs["system_prompt"]
+        return {"name": kwargs["display_name"], "memo": "CUE memo."}
+
+    with patch("agents.run_specialist", side_effect=fake_run_specialist):
+        await run_selected_specialists(
+            client=client,
+            facts=FACTS,
+            specialist_names=["regulatory_analyst"],
+            query_type="cue_claim",
+        )
+
+    # The regulatory_analyst must have received the CUE override prompt
+    assert "regulatory_analyst" in captured_prompts
+    assert captured_prompts["regulatory_analyst"] == CUE_REGULATORY_PROMPT
+
+    # Confirm it differs from the default prompt
+    default_prompt = next(
+        s["system_prompt"] for s in SPECIALISTS if s["name"] == "regulatory_analyst"
+    )
+    assert captured_prompts["regulatory_analyst"] != default_prompt
+
+
+@pytest.mark.asyncio
+async def test_run_selected_specialists_falls_back_to_default_prompt():
+    """When no query_type is passed, the default specialist prompt is used."""
+    from agents import SPECIALISTS
+
+    response = make_response("end_turn", [make_text_block("Default memo.")])
+    client = make_client(response)
+
+    captured_prompts = {}
+
+    async def fake_run_specialist(**kwargs):
+        captured_prompts[kwargs["name"]] = kwargs["system_prompt"]
+        return {"name": kwargs["display_name"], "memo": "Default memo."}
+
+    with patch("agents.run_specialist", side_effect=fake_run_specialist):
+        await run_selected_specialists(
+            client=client,
+            facts=FACTS,
+            specialist_names=["regulatory_analyst"],
+            # no query_type passed — should fall back to default
+        )
+
+    default_prompt = next(
+        s["system_prompt"] for s in SPECIALISTS if s["name"] == "regulatory_analyst"
+    )
+    assert captured_prompts["regulatory_analyst"] == default_prompt
+
+
+@pytest.mark.asyncio
+async def test_synthesis_accepts_model_param():
+    """synthesize() accepts a model param and passes it to the API call."""
+    from synthesis import synthesize
+
+    text_block = MagicMock()
+    text_block.type = "text"
+    text_block.text = "Final memo text."
+
+    response = MagicMock()
+    response.content = [text_block]
+
+    client = MagicMock()
+    client.messages = MagicMock()
+    client.messages.create = AsyncMock(return_value=response)
+
+    custom_model = "claude-sonnet-4-6"
+    result = await synthesize(
+        client=client,
+        facts=FACTS,
+        memos=[{"name": "Regulatory Analyst", "memo": "Memo content."}],
+        model=custom_model,
+    )
+
+    assert result == "Final memo text."
+    # Verify the custom model was passed to the API
+    call_kwargs = client.messages.create.call_args[1]
+    assert call_kwargs["model"] == custom_model

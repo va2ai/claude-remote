@@ -67,6 +67,11 @@ CLASSIFICATION_SCHEMA = {
                 "type": "boolean",
                 "description": "True if the full specialist pipeline can be bypassed",
             },
+            "response_depth": {
+                "type": "string",
+                "enum": ["brief", "standard", "comprehensive"],
+                "description": "brief = 2-4 paragraphs; standard = structured sections; comprehensive = full legal memo with all citations",
+            },
         },
         "required": [
             "query_type",
@@ -75,6 +80,7 @@ CLASSIFICATION_SCHEMA = {
             "topic_keywords",
             "skip_intake",
             "quick_answer",
+            "response_depth",
         ],
         "additionalProperties": False,
     },
@@ -109,8 +115,8 @@ ROUTING_PROFILES = {
         "specialists": ["regulatory_analyst", "procedural_tactician"],
         "max_tool_iterations": 6,
         "specialist_model": SPECIALIST_MODEL,
-        "synthesis_model": None,
-        "run_synthesis": False,
+        "synthesis_model": SPECIALIST_MODEL,
+        "run_synthesis": True,
         "quick_answer": False,
     },
     "cue_claim": {

@@ -85,6 +85,7 @@ async def run_specialist(
     facts: dict,
     max_iterations: int = MAX_TOOL_ITERATIONS,
     model: str = SPECIALIST_MODEL,
+    response_depth: str = "standard",
 ) -> dict:
     """Run a single specialist agent with adaptive thinking and tool use.
 
@@ -97,6 +98,10 @@ async def run_specialist(
         "actual regulations, cases, and guidance — do not rely on memory "
         "alone. Return a structured memo in the format specified in your "
         "system prompt."
+        f"\n\nRESPONSE DEPTH: {response_depth.upper()}\n"
+        "brief = 2-4 paragraph memo with key facts only\n"
+        "standard = structured memo with labeled sections\n"
+        "comprehensive = full legal memo with all citations, tables, and edge cases"
     )
 
     messages = [{"role": "user", "content": user_message}]
@@ -196,6 +201,7 @@ async def run_selected_specialists(
     max_tool_iterations: int = MAX_TOOL_ITERATIONS,
     model: str = SPECIALIST_MODEL,
     query_type: str = None,
+    response_depth: str = "standard",
 ) -> list[dict]:
     """Run a subset of specialist agents in parallel.
 
@@ -222,6 +228,7 @@ async def run_selected_specialists(
                 facts=facts,
                 max_iterations=max_tool_iterations,
                 model=model,
+                response_depth=response_depth,
             )
             for spec in selected
         ]
@@ -229,7 +236,7 @@ async def run_selected_specialists(
 
 
 async def run_all_specialists(
-    client: AsyncAnthropic, facts: dict
+    client: AsyncAnthropic, facts: dict, response_depth: str = "standard"
 ) -> list[dict]:
     """Fire all five specialist agents simultaneously via asyncio.gather().
 
@@ -245,6 +252,7 @@ async def run_all_specialists(
                 system_prompt=spec["system_prompt"],
                 tools=AGENT_TOOLS[spec["name"]],
                 facts=facts,
+                response_depth=response_depth,
             )
             for spec in SPECIALISTS
         ]
