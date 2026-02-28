@@ -4,6 +4,7 @@ import json
 import sys
 import time
 from anthropic import AsyncAnthropic
+from langfuse import observe, get_client as get_langfuse
 
 from normalize import normalize_input
 from classifier import classify_query
@@ -32,6 +33,7 @@ def _format_memos(memos: list[dict], query_type: str) -> str:
     return header + "\n\n---\n\n" + "\n\n---\n\n".join(sections)
 
 
+@observe(name="va-attorney-agent")
 async def run(client: AsyncAnthropic, raw_text: str) -> str:
     """Top-level orchestration entry point. Returns the final output string."""
 
@@ -50,6 +52,11 @@ async def run(client: AsyncAnthropic, raw_text: str) -> str:
     query_type = classification["query_type"]
     routing = classification["routing"]
     response_depth = classification.get("response_depth", "standard")
+
+    get_langfuse().update_current_trace(
+        tags=[query_type, response_depth],
+        metadata={"query_type": query_type, "input_format": input_format},
+    )
 
     print(f"  Query type  : {query_type}", file=sys.stderr)
     print(f"  Confidence  : {classification.get('confidence', 0):.2f}", file=sys.stderr)

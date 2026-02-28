@@ -2,10 +2,12 @@
 
 import json
 from anthropic import AsyncAnthropic
+from langfuse import observe
 from config import INTAKE_MODEL, INTAKE_MAX_TOKENS, INTAKE_SCHEMA
 from prompts.intake import SYSTEM_PROMPT
 
 
+@observe(name="intake")
 async def parse_intake(client: AsyncAnthropic, raw_text: str) -> dict:
     """Parse a veteran's plain-text claim narrative into structured facts.
 

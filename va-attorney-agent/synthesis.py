@@ -2,10 +2,12 @@
 
 import json
 from anthropic import AsyncAnthropic
+from langfuse import observe
 from config import SYNTHESIS_MODEL, SYNTHESIS_MAX_TOKENS, SPECIALIST_THINKING
 from prompts.senior_partner import SYSTEM_PROMPT
 
 
+@observe(name="synthesis")
 async def synthesize(
     client: AsyncAnthropic,
     facts: dict,

@@ -22,10 +22,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from anthropic import AsyncAnthropic
+from langfuse import get_client as get_langfuse
+from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
 
 from orchestrator import run
 
 load_dotenv()
+
+AnthropicInstrumentor().instrument()
 
 
 def read_input() -> str:
@@ -58,6 +62,7 @@ async def main():
     client = AsyncAnthropic()
     result = await run(client, raw_input)
     print(result)
+    get_langfuse().flush()
 
 
 if __name__ == "__main__":

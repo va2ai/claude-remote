@@ -5,6 +5,7 @@ import json
 import sys
 import httpx
 from anthropic import AsyncAnthropic
+from langfuse import observe, get_client as get_langfuse
 
 from config import SPECIALIST_MODEL, SPECIALIST_MAX_TOKENS, SPECIALIST_THINKING, MAX_TOOL_ITERATIONS, ROUTING_PROFILES
 from tools.definitions import AGENT_TOOLS
@@ -75,6 +76,7 @@ SPECIALIST_PROMPT_OVERRIDES = {
 # ── Agentic Loop ──────────────────────────────────────────────────
 
 
+@observe()
 async def run_specialist(
     client: AsyncAnthropic,
     http_client: httpx.AsyncClient,
@@ -92,6 +94,7 @@ async def run_specialist(
     Loops until the model stops calling tools (end_turn), up to
     max_iterations iterations. Returns {"name": ..., "memo": ...}.
     """
+    get_langfuse().update_current_span(name=f"specialist:{name}")
     user_message = (
         f"CASE FACTS:\n{json.dumps(facts, indent=2)}\n\n"
         "Complete your assigned research task. Use your tools to look up "

@@ -2,6 +2,7 @@
 
 import sys
 from anthropic import AsyncAnthropic
+from langfuse import observe
 
 from config import INTAKE_MODEL, CLASSIFICATION_SCHEMA, ROUTING_PROFILES
 from prompts.classifier import SYSTEM_PROMPT
@@ -41,6 +42,7 @@ def _enrich(result: dict) -> dict:
     return result
 
 
+@observe(name="classify_query")
 async def classify_query(client: AsyncAnthropic, raw_text: str) -> dict:
     """Classify the incoming query to determine routing strategy.
 
