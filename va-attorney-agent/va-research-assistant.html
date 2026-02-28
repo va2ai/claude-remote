@@ -2312,7 +2312,8 @@ const bvaApi = {
 
 // ── Helper: extract CFR section parts from a string like "38 CFR § 3.310" ──
 function parseCfrRef(ref) {
-  const match = ref.match(/(\d+)\.(\S+)/);
+  // Match part.section — strip subsection suffixes like (a), (b)(1) that the API doesn't accept
+  const match = ref.match(/(\d+)\.(\d+)/);
   if (match) return { part: match[1], section: match[2] };
   return null;
 }
