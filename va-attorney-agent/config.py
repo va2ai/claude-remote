@@ -20,7 +20,7 @@ SYNTHESIS_MAX_TOKENS = 8000    # was 16000
 SPECIALIST_THINKING = {"type": "adaptive"}
 
 # ── Safety Valve ──────────────────────────────────────────────────
-MAX_TOOL_ITERATIONS = 5   # was 15
+MAX_TOOL_ITERATIONS = 10   # rating_increase default; light paths override in ROUTING_PROFILES
 
 # ── Quick Answer Configuration ────────────────────────────────────
 QUICK_ANSWER_MODEL = "claude-haiku-4-5-20251001"
