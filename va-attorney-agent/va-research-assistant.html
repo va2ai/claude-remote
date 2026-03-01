@@ -1588,6 +1588,23 @@
     background: var(--paper);
     color: var(--mid-gray);
   }
+
+  .memo-h2 { font-family: var(--font-serif); font-size: 16px; font-weight: 400; margin: 14px 0 6px; color: var(--ink); }
+  .memo-h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 4px; color: var(--blue-ink); }
+  .memo-ul { padding-left: 18px; margin: 6px 0; }
+  .memo-ul li { font-size: 13px; line-height: 1.6; color: #3A3630; margin-bottom: 4px; }
+  .memo-p { font-size: 13px; line-height: 1.65; color: #3A3630; margin-bottom: 8px; }
+
+  .action-item-row { display:flex; align-items:flex-start; gap:10px; padding:10px; border-radius:8px; margin-bottom:6px; background:var(--paper); }
+  .action-step-num { width:22px; height:22px; border-radius:50%; background:var(--cream); color:var(--mid-gray); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; }
+  .action-priority-badge { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; padding:2px 7px; border-radius:20px; display:inline-block; margin-bottom:4px; }
+  .action-priority-badge.critical { color:var(--accent); background:var(--accent-glow); }
+  .action-priority-badge.high { color:var(--amber); background:var(--amber-light); }
+  .action-priority-badge.medium { color:var(--blue-ink); background:var(--blue-light); }
+  .action-priority-badge.low { color:var(--green-verdict); background:var(--green-light); }
+  .action-item-body { flex:1; min-width:0; }
+  .action-item-text { font-size:12.5px; line-height:1.5; }
+  .action-item-text .memo-p { font-size:12.5px; margin-bottom:0; }
 </style>
 </head>
 <body>
@@ -1742,6 +1759,27 @@
 </div>
 
 <script>
+// ── Helpers ──
+function escQ(s) { return (s || '').replace(/'/g, "\\'").replace(/\n/g, ' '); }
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  let html = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  html = html.replace(/^### (.+)$/gm, '<h4 class="memo-h3">$1</h4>');
+  html = html.replace(/^## (.+)$/gm, '<h3 class="memo-h2">$1</h3>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, function(m) { return '<ul class="memo-ul">' + m + '</ul>'; });
+  html = html.split(/\n{2,}/).map(function(p) {
+    p = p.trim();
+    if (!p || p.startsWith('<h') || p.startsWith('<ul')) return p;
+    return '<p class="memo-p">' + p.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+  return html;
+}
+
 // ── State ──
 const state = {
   screen: 'welcome',
@@ -2490,16 +2528,32 @@ function renderResults(data) {
   if (data.bva_cases?.length) {
     setAgentStatus('legal', 'active');
     const OUTCOME_ICON = { grant: '\u2713', deny: '\u2717', remand: '\u21a9' };
-    const caseListHtml = data.bva_cases.map(c => {
+    const caseListHtml = data.bva_cases.map((c, i) => {
       const oc = c.outcome === 'grant' ? 'granted' : c.outcome === 'deny' ? 'denied' : 'remanded';
+      const expId = 'case-exp-' + i;
       return `
-        <div class="case-item">
+        <div class="case-item" onclick="toggleCaseExpand('${expId}')">
           <div class="case-outcome ${oc}">${OUTCOME_ICON[c.outcome] || '\ud83d\udcc4'}</div>
           <div class="case-info">
             <h5>${c.citation}</h5>
             <p>${(c.summary || '').substring(0, 90)}${(c.summary || '').length > 90 ? '\u2026' : ''}</p>
           </div>
           ${c.year ? `<span class="case-year">${c.year}</span>` : ''}
+        </div>
+        <div class="inline-expand" id="${expId}">
+          <div class="inline-detail">
+            <div class="detail-header">
+              <h4>${c.citation}</h4>
+              <div class="detail-meta">
+                ${c.year ? `<span class="detail-meta-item"><strong>Year:</strong> ${c.year}</span>` : ''}
+                <span class="detail-meta-item"><strong>Outcome:</strong> ${oc.charAt(0).toUpperCase() + oc.slice(1)}</span>
+              </div>
+            </div>
+            <div class="detail-section">
+              <p>${c.summary || ''}</p>
+            </div>
+            ${c.url ? `<div class="detail-actions"><a href="${c.url}" target="_blank" class="refine-chip" style="text-decoration:none;">View Decision</a></div>` : ''}
+          </div>
         </div>`;
     }).join('');
     addAgentBlock('legal', 'now', `
@@ -2534,12 +2588,14 @@ function renderResults(data) {
   // Action items
   if (data.action_items?.length) {
     setAgentStatus('synthesis', 'active');
-    const actionsHtml = data.action_items.map(item => {
-      const [clr, bg] = PRIORITY_BG[item.priority] || PRIORITY_BG.medium;
+    const actionsHtml = data.action_items.map((item, i) => {
       return `
-        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px;background:var(--paper);border-radius:8px;margin-bottom:6px;">
-          <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--${clr});padding:3px 7px;background:var(--${bg});border-radius:20px;white-space:nowrap;margin-top:2px;">${item.priority}</span>
-          <span style="font-size:12.5px;line-height:1.5;color:#3A3630;">${item.text}</span>
+        <div class="action-item-row">
+          <div class="action-step-num">${i+1}</div>
+          <div class="action-item-body">
+            <span class="action-priority-badge ${item.priority}">${item.priority}</span>
+            <div class="action-item-text">${renderMarkdown(item.text)}</div>
+          </div>
         </div>`;
     }).join('');
     addAgentBlock('synthesis', 'now', `
@@ -2555,15 +2611,11 @@ function renderResults(data) {
 
   // Research memo
   if (data.memo) {
-    const memoHtml = data.memo
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>')
-      .substring(0, 700);
     addAgentBlock('synthesis', 'now', `
       <div class="content-card">
         <div class="card-body">
           <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:8px;">Research Summary</p>
-          <p style="line-height:1.65;">${memoHtml}${data.memo.length > 700 ? '\u2026' : ''}</p>
+          ${renderMarkdown(data.memo)}
         </div>
         <div class="expand-trigger" onclick="this.classList.toggle('open')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -2595,15 +2647,19 @@ function addLexisFollowUp(data) {
     return;
   }
 
-  const q = questions[0];
+  const chipQuestions = questions.slice(0, 3);
+  const chipsHtml = chipQuestions.map(q => {
+    const label = q.text.length > 60 ? q.text.substring(0, 60) + '...' : q.text;
+    return `<button class="refine-chip" onclick="runFollowupResearch('${escQ(q.text)}')">${label}</button>`;
+  }).join('');
   addAgentBlock('synthesis', 'now', `
     <div class="content-card">
       <div class="card-body">
         <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:8px;">LEXIS Follow-Up</p>
-        <p style="line-height:1.65;">${q.text}</p>
-        ${questions[1] ? `
-          <p style="margin-top:10px;line-height:1.65;color:var(--mid-gray);">${questions[1].text}</p>
-        ` : ''}
+        <div class="refine-options">
+          ${chipsHtml}
+          <button class="refine-chip" onclick="document.getElementById('inputField').focus()">Type your own...</button>
+        </div>
       </div>
     </div>
   `);
@@ -2682,15 +2738,11 @@ function renderRefinedResults(data) {
 
   // Updated memo
   if (data.memo) {
-    const memoHtml = data.memo
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>')
-      .substring(0, 700);
     addAgentBlock('synthesis', 'now', `
       <div class="content-card">
         <div class="card-body">
           <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:8px;">Refined Analysis</p>
-          <p style="line-height:1.65;">${memoHtml}${data.memo.length > 700 ? '\u2026' : ''}</p>
+          ${renderMarkdown(data.memo)}
         </div>
       </div>
     `);
@@ -2698,12 +2750,15 @@ function renderRefinedResults(data) {
 
   // Updated action items
   if (data.action_items?.length) {
-    const actionsHtml = data.action_items.map(item => {
-      const [c, bg] = PRIORITY_BG[item.priority] || PRIORITY_BG.medium;
-      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px;background:var(--paper);border-radius:8px;margin-bottom:6px;">
-        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--${c});padding:3px 7px;background:var(--${bg});border-radius:20px;white-space:nowrap;margin-top:2px;">${item.priority}</span>
-        <span style="font-size:12.5px;line-height:1.5;color:#3A3630;">${item.text}</span>
-      </div>`;
+    const actionsHtml = data.action_items.map((item, i) => {
+      return `
+        <div class="action-item-row">
+          <div class="action-step-num">${i+1}</div>
+          <div class="action-item-body">
+            <span class="action-priority-badge ${item.priority}">${item.priority}</span>
+            <div class="action-item-text">${renderMarkdown(item.text)}</div>
+          </div>
+        </div>`;
     }).join('');
     addAgentBlock('synthesis', 'now', `
       <div class="content-card">
@@ -3023,9 +3078,20 @@ const ratingDetailData = {
 };
 
 // ── Expand/Collapse Inline Detail Panels ──
-function toggleCaseExpand(caseId, el) {
+function toggleCaseExpand(idOrCaseId, el) {
+  // New ID-based toggle (for API-rendered cases)
+  if (!el) {
+    const panel = document.getElementById(idOrCaseId);
+    if (!panel) return;
+    panel.classList.toggle('open');
+    document.querySelectorAll('.inline-expand.open').forEach(e => { if (e.id !== idOrCaseId) e.classList.remove('open'); });
+    return;
+  }
+
+  // Legacy dynamic-panel toggle (for hardcoded demo cases)
+  const caseId = idOrCaseId;
   const existingPanel = el.parentElement.querySelector('.inline-expand');
-  
+
   if (existingPanel) {
     if (existingPanel.classList.contains('open')) {
       existingPanel.classList.remove('open');
@@ -3034,7 +3100,6 @@ function toggleCaseExpand(caseId, el) {
     }
   }
 
-  // Remove any other open panels in the same list
   el.parentElement.querySelectorAll('.inline-expand').forEach(p => {
     p.classList.remove('open');
     setTimeout(() => p.remove(), 500);
