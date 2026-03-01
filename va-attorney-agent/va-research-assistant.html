@@ -2483,8 +2483,7 @@ async function startResearch(goal) {
 }
 
 // ── Real Research via Backend API ──
-// Use defined Cloud Run URL; fall back to localhost for local dev
-const LEXIS_BACKEND = window.LEXIS_BACKEND_URL || 'http://127.0.0.1:8080';
+const LEXIS_BACKEND = window.LEXIS_BACKEND_URL || 'https://vet-research-524576132881.us-central1.run.app';
 
 async function runRealResearch(goal) {
   state.researchPhase = 'idle';
