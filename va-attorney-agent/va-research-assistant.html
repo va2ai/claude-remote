@@ -1605,6 +1605,86 @@
   .action-item-body { flex:1; min-width:0; }
   .action-item-text { font-size:12.5px; line-height:1.5; }
   .action-item-text .memo-p { font-size:12.5px; margin-bottom:0; }
+
+  /* ── Agent Section (outer collapsible) ── */
+  .agent-section { margin-bottom: 10px; animation: fadeUp 0.4s ease; }
+
+  .agent-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: white;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    border: 1.5px solid rgba(0,0,0,0.04);
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .agent-section-header:active { background: var(--paper); }
+
+  .agent-section-chevron {
+    width: 15px; height: 15px;
+    color: var(--warm-gray);
+    transition: transform 0.3s;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  .agent-section.open .agent-section-chevron { transform: rotate(180deg); }
+
+  .agent-section-body {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease, margin 0.3s ease;
+    margin-top: 0;
+  }
+  .agent-section.open .agent-section-body {
+    max-height: 6000px;
+    opacity: 1;
+    margin-top: 4px;
+  }
+
+  /* ── Child card toggle (inner) ── */
+  .child-toggle { margin-bottom: 4px; }
+
+  .child-toggle-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    background: var(--paper);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--mid-gray);
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .child-toggle-header:active { background: var(--cream); }
+
+  .child-toggle-chevron {
+    width: 13px; height: 13px;
+    color: var(--warm-gray);
+    transition: transform 0.3s;
+    flex-shrink: 0;
+  }
+  .child-toggle.open .child-toggle-chevron { transform: rotate(180deg); }
+
+  .child-toggle-body {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease;
+  }
+  .child-toggle.open .child-toggle-body {
+    max-height: 4000px;
+    opacity: 1;
+  }
 </style>
 </head>
 <body>
@@ -1912,6 +1992,7 @@ async function analyzeDocument(fileName, fileSize, fileType, userInstructions) {
   state.progress = 0;
   state.step = 99; // Bypass normal research steps
   feed.innerHTML = '';
+  Object.keys(_agentSections).forEach(k => delete _agentSections[k]);
 
   document.getElementById('goalDisplay').textContent = goalText;
   document.getElementById('progressPct').textContent = '0%';
@@ -2390,6 +2471,7 @@ async function startResearch(goal) {
   state.progress = 0;
   state.step = 0;
   feed.innerHTML = '';
+  Object.keys(_agentSections).forEach(k => delete _agentSections[k]);
 
   document.getElementById('goalDisplay').textContent = goal;
   document.getElementById('progressPct').textContent = '0%';
@@ -2516,12 +2598,11 @@ function renderResults(data) {
     addAgentBlock('analysis', 'now', `
       <div class="content-card">
         <div class="card-body">
-          <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:8px;">Regulatory Framework</p>
           <p>Found <strong>${data.cfr_sections.length} CFR section${data.cfr_sections.length !== 1 ? 's' : ''}</strong> relevant to your query.</p>
         </div>
         ${cfrHtml}
       </div>
-    `);
+    `, `Regulatory Framework (${data.cfr_sections.length})`);
     setAgentStatus('analysis', 'idle');
   }
 
@@ -2559,12 +2640,9 @@ function renderResults(data) {
     }).join('');
     addAgentBlock('legal', 'now', `
       <div class="content-card">
-        <div class="card-body">
-          <p>Analyzed <strong>${data.bva_cases.length} BVA decision${data.bva_cases.length !== 1 ? 's' : ''}</strong>.</p>
-        </div>
         <div class="case-list">${caseListHtml}</div>
       </div>
-    `);
+    `, `BVA Decisions (${data.bva_cases.length})`);
     setAgentStatus('legal', 'idle');
   }
 
@@ -2602,28 +2680,22 @@ function renderResults(data) {
     addAgentBlock('synthesis', 'now', `
       <div class="content-card">
         <div class="card-body">
-          <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:10px;">Action Items</p>
           ${actionsHtml}
         </div>
       </div>
-    `);
+    `, `Action Items (${data.action_items.length})`);
     setAgentStatus('synthesis', 'idle');
   }
 
-  // Research memo
+  // Research memo — uses child toggle as the expand trigger
   if (data.memo) {
     addAgentBlock('synthesis', 'now', `
       <div class="content-card">
         <div class="card-body">
-          <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:8px;">Research Summary</p>
           ${renderMarkdown(data.memo)}
         </div>
-        <div class="expand-trigger" onclick="this.classList.toggle('open')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          Export full research brief
-        </div>
       </div>
-    `);
+    `, 'Research Summary');
     setAgentStatus('synthesis', 'idle');
   }
 
@@ -2742,11 +2814,10 @@ function renderRefinedResults(data) {
     addAgentBlock('synthesis', 'now', `
       <div class="content-card">
         <div class="card-body">
-          <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:8px;">Refined Analysis</p>
           ${renderMarkdown(data.memo)}
         </div>
       </div>
-    `);
+    `, 'Refined Analysis');
   }
 
   // Updated action items
@@ -2764,11 +2835,10 @@ function renderRefinedResults(data) {
     addAgentBlock('synthesis', 'now', `
       <div class="content-card">
         <div class="card-body">
-          <p style="font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--warm-gray);font-weight:600;margin-bottom:10px;">Updated Action Items</p>
           ${actionsHtml}
         </div>
       </div>
-    `);
+    `, `Updated Action Items (${data.action_items.length})`);
   }
 
   state.researchPhase = 'followup';
@@ -2875,21 +2945,83 @@ function addUserMessage(text) {
 }
 
 // ── Add Agent Message ──
-function addAgentBlock(agentId, time, contentHTML) {
+// Track open agent section bodies across calls
+const _agentSections = {};
+
+const CHEVRON_SVG = `<svg class="agent-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
+const CHILD_CHEVRON_SVG = `<svg class="child-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+function toggleAgentSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+function toggleChildCard(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+function addAgentBlock(agentId, time, contentHTML, cardTitle) {
   const labels = { research: 'Research Agent', analysis: 'Analysis Agent', legal: 'Legal Agent', synthesis: 'Synthesis Agent' };
   const initials = { research: 'R', analysis: 'A', legal: 'L', synthesis: 'S' };
+  const collapsible = ['analysis', 'legal', 'synthesis'];
 
-  const div = document.createElement('div');
-  div.className = 'agent-msg';
-  div.innerHTML = `
-    <div class="agent-header">
-      <div class="agent-avatar ${agentId}">${initials[agentId]}</div>
-      <span class="agent-label">${labels[agentId]}</span>
-      <span class="agent-time">${time}</span>
-    </div>
-    ${contentHTML}
-  `;
-  feed.appendChild(div);
+  if (!collapsible.includes(agentId)) {
+    // Research agent: render inline, no grouping
+    const div = document.createElement('div');
+    div.className = 'agent-msg';
+    div.innerHTML = `
+      <div class="agent-header">
+        <div class="agent-avatar ${agentId}">${initials[agentId]}</div>
+        <span class="agent-label">${labels[agentId]}</span>
+        <span class="agent-time">${time}</span>
+      </div>
+      ${contentHTML}
+    `;
+    feed.appendChild(div);
+    scrollToBottom();
+    return;
+  }
+
+  // Create section on first call per agent
+  if (!_agentSections[agentId]) {
+    const secId = `agent-sec-${agentId}`;
+    const section = document.createElement('div');
+    section.className = 'agent-section';
+    section.id = secId;
+    section.innerHTML = `
+      <div class="agent-section-header" onclick="toggleAgentSection('${secId}')">
+        <div class="agent-avatar ${agentId}" style="width:24px;height:24px;font-size:10px;border-radius:6px;">${initials[agentId]}</div>
+        <span class="agent-label">${labels[agentId]}</span>
+        ${CHEVRON_SVG}
+      </div>
+      <div class="agent-section-body" id="${secId}-body"></div>
+    `;
+    feed.appendChild(section);
+    _agentSections[agentId] = document.getElementById(`${secId}-body`);
+  }
+
+  const body = _agentSections[agentId];
+
+  if (cardTitle) {
+    const childId = `child-${agentId}-${Date.now()}`;
+    const child = document.createElement('div');
+    child.className = 'child-toggle';
+    child.id = childId;
+    child.innerHTML = `
+      <div class="child-toggle-header" onclick="toggleChildCard('${childId}')">
+        <span>${cardTitle}</span>
+        ${CHILD_CHEVRON_SVG}
+      </div>
+      <div class="child-toggle-body">${contentHTML}</div>
+    `;
+    body.appendChild(child);
+  } else {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = contentHTML;
+    body.appendChild(wrap);
+  }
+
   scrollToBottom();
 }
 
@@ -4488,6 +4620,7 @@ const postResearchFlows = {
       state.agents.forEach(a => a.status = 'idle');
       completedFlows.clear();
       feed.innerHTML = '';
+      Object.keys(_agentSections).forEach(k => delete _agentSections[k]);
       showScreen('welcome');
       document.getElementById('inputField').placeholder = 'Describe your research goal…';
     }
