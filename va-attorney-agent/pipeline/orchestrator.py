@@ -6,12 +6,12 @@ import time
 from anthropic import AsyncAnthropic
 from langfuse import observe, get_client as get_langfuse
 
-from normalize import normalize_input
-from classifier import classify_query
-from quick_answer import answer_quick
-from intake import parse_intake
-from agents import run_all_specialists, run_selected_specialists
-from synthesis import synthesize
+from .normalize import normalize_input
+from .classifier import classify_query
+from .quick_answer import answer_quick
+from .intake import parse_intake
+from .agents import run_all_specialists, run_selected_specialists
+from .synthesis import synthesize
 from config import ROUTING_PROFILES
 
 

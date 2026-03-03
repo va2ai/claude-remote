@@ -36,19 +36,19 @@ Progress is printed to stderr; the final memo goes to stdout (can be piped/redir
 
 ## Architecture — Three-Phase Pipeline
 
-### Phase 1: Intake (`intake.py`)
+### Phase 1: Intake (`pipeline/intake.py`)
 - Model: `claude-haiku-4-5` (fast, cheap)
 - Parses the veteran's free-text narrative into a strict JSON schema (`INTAKE_SCHEMA` in `config.py`)
 - Uses structured output (`output_config.format.json_schema`) — no tools, no reasoning
 
-### Phase 2: Specialist Agents (`agents.py`)
+### Phase 2: Specialist Agents (`pipeline/agents.py`)
 - Model: `claude-opus-4-6` with adaptive thinking
 - Five agents run **in parallel** via `asyncio.gather()` — total time = slowest agent
 - Each agent has a curated subset of BVA API tools (see `tools/definitions.py`)
 - Agentic tool-use loop: loops until `stop_reason == "end_turn"` or hits `MAX_TOOL_ITERATIONS` (15)
 - **Critical:** Full `response.content` (including thinking blocks) is preserved when appending to messages, not just text
 
-### Phase 3: Synthesis (`synthesis.py`)
+### Phase 3: Synthesis (`pipeline/synthesis.py`)
 - Model: `claude-opus-4-6` with adaptive thinking
 - Senior Partner receives all five specialist memos and produces one unified legal research memo
 - No tools — pure synthesis
@@ -66,6 +66,7 @@ Progress is printed to stderr; the final memo goes to stdout (can be piped/redir
 ## Key Files
 
 - `config.py` — all model names, token limits, thinking config, `INTAKE_SCHEMA`, and `BVA_API_BASE_URL`
+- `pipeline/` — all pipeline stages: `orchestrator.py`, `classifier.py`, `intake.py`, `agents.py`, `synthesis.py`, `quick_answer.py`, `normalize.py`
 - `tools/definitions.py` — Anthropic-format tool definitions and per-agent assignments (`AGENT_TOOLS`)
 - `tools/handlers.py` — async HTTP handlers for each BVA API endpoint; `dispatch_tool()` routes calls
 - `prompts/` — one file per agent with its `SYSTEM_PROMPT`

@@ -4,7 +4,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
-from agents import run_specialist, run_selected_specialists, SPECIALIST_PROMPT_OVERRIDES
+from pipeline.agents import run_specialist, run_selected_specialists, SPECIALIST_PROMPT_OVERRIDES
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ async def test_tool_call_then_end_turn():
     final_response = make_response("end_turn", [make_text_block("Final memo.")])
     client = make_client(tool_response, final_response)
 
-    with patch("agents.dispatch_tool", new=AsyncMock(return_value='{"result": "case found"}')):
+    with patch("pipeline.agents.dispatch_tool", new=AsyncMock(return_value='{"result": "case found"}')):
         result = await run_specialist(
             client=client,
             http_client=make_http_client(),
@@ -113,7 +113,7 @@ async def test_no_empty_user_message_when_no_tool_blocks():
     end_response = make_response("end_turn", [make_text_block("done")])
     client = make_client(weird_response, end_response)
 
-    with patch("agents.dispatch_tool", new=AsyncMock(return_value="{}")):
+    with patch("pipeline.agents.dispatch_tool", new=AsyncMock(return_value="{}")):
         result = await run_specialist(
             client=client,
             http_client=make_http_client(),
@@ -142,7 +142,7 @@ async def test_multiple_tool_calls_in_one_response():
     final_response = make_response("end_turn", [make_text_block("memo")])
     client = make_client(tool_response, final_response)
 
-    with patch("agents.dispatch_tool", new=AsyncMock(return_value="{}")):
+    with patch("pipeline.agents.dispatch_tool", new=AsyncMock(return_value="{}")):
         result = await run_specialist(
             client=client,
             http_client=make_http_client(),
@@ -173,7 +173,7 @@ async def test_hits_max_iterations():
     tool_response = make_response("tool_use", [make_tool_use_block()])
     client = make_client(*[tool_response] * (MAX_TOOL_ITERATIONS + 1))
 
-    with patch("agents.dispatch_tool", new=AsyncMock(return_value="{}")):
+    with patch("pipeline.agents.dispatch_tool", new=AsyncMock(return_value="{}")):
         result = await run_specialist(
             client=client,
             http_client=make_http_client(),
@@ -195,7 +195,7 @@ async def test_hits_max_iterations():
 async def test_run_selected_specialists_uses_prompt_overrides():
     """When query_type='cue_claim' is passed, the regulatory_analyst specialist
     is called with the CUE-specific prompt, not its default prompt."""
-    from agents import SPECIALISTS, SPECIALIST_PROMPT_OVERRIDES
+    from pipeline.agents import SPECIALISTS, SPECIALIST_PROMPT_OVERRIDES
     from prompts.cue_claim import REGULATORY_PROMPT as CUE_REGULATORY_PROMPT
 
     # Build a response that immediately ends the loop
@@ -208,7 +208,7 @@ async def test_run_selected_specialists_uses_prompt_overrides():
         captured_prompts[kwargs["name"]] = kwargs["system_prompt"]
         return {"name": kwargs["display_name"], "memo": "CUE memo."}
 
-    with patch("agents.run_specialist", side_effect=fake_run_specialist):
+    with patch("pipeline.agents.run_specialist", side_effect=fake_run_specialist):
         await run_selected_specialists(
             client=client,
             facts=FACTS,
@@ -230,7 +230,7 @@ async def test_run_selected_specialists_uses_prompt_overrides():
 @pytest.mark.asyncio
 async def test_run_selected_specialists_falls_back_to_default_prompt():
     """When no query_type is passed, the default specialist prompt is used."""
-    from agents import SPECIALISTS
+    from pipeline.agents import SPECIALISTS
 
     response = make_response("end_turn", [make_text_block("Default memo.")])
     client = make_client(response)
@@ -241,7 +241,7 @@ async def test_run_selected_specialists_falls_back_to_default_prompt():
         captured_prompts[kwargs["name"]] = kwargs["system_prompt"]
         return {"name": kwargs["display_name"], "memo": "Default memo."}
 
-    with patch("agents.run_specialist", side_effect=fake_run_specialist):
+    with patch("pipeline.agents.run_specialist", side_effect=fake_run_specialist):
         await run_selected_specialists(
             client=client,
             facts=FACTS,
@@ -258,7 +258,7 @@ async def test_run_selected_specialists_falls_back_to_default_prompt():
 @pytest.mark.asyncio
 async def test_synthesis_accepts_model_param():
     """synthesize() accepts a model param and passes it to the API call."""
-    from synthesis import synthesize
+    from pipeline.synthesis import synthesize
 
     text_block = MagicMock()
     text_block.type = "text"

@@ -25,7 +25,7 @@ from anthropic import AsyncAnthropic
 from langfuse import get_client as get_langfuse
 from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
 
-from orchestrator import run
+from pipeline import run
 
 load_dotenv()
 
